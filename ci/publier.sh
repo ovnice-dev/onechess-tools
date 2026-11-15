@@ -31,12 +31,15 @@ if [ "${2:-}" = "--nouveau" ]; then
   git push --force public public:main
   echo "nouveau depart publie : $(git rev-parse --short public)"
 elif git rev-parse -q --verify refs/heads/public >/dev/null; then
-  [ "$(git rev-parse public^{tree})" = "$arbre" ] && { echo "rien de neuf a publier"; exit 0; }
-  c=$(echo "$MSG" | git commit-tree "$arbre" -p public)
+  if [ "$(git rev-parse public^{tree})" = "$arbre" ]; then
+    echo "moteur : rien de neuf"; c=""
+  else
+    c=$(echo "$MSG" | git commit-tree "$arbre" -p public)
+  fi
 else
   c=$(echo "$MSG" | git commit-tree "$arbre")
 fi
-if [ "${2:-}" != "--nouveau" ]; then
+if [ "${2:-}" != "--nouveau" ] && [ -n "${c:-}" ]; then
 git update-ref refs/heads/public "$c"
 for f in $PRIVES; do git ls-tree -r --name-only public | grep -qx "$f" && { echo "ERREUR : $f dans public"; exit 1; }; done
 git push public public:main
