@@ -73,3 +73,5 @@ LeelaF|EvalFile=reseau/essais/kaggle/leela_e6.nnue|0 3|10|150|30||tc:10+0.1
 ClesOne||-3 1|10|150|30||tc:10+0.1;x2=-DONE_CLES_V1
 HistRootF|HistRootPct=75|0 3|10|150|30||tc:10+0.1
 BonusStatF|BonusStatDiv=32|0 3|10|150|30||tc:10+0.1
+NmpImpF|NmpImp=50|0 3|10|150|30||tc:10+0.1
+QsStandF|QsStandTt=1|0 3|10|150|30||tc:10+0.1
