@@ -67,7 +67,7 @@ BigHist4|Threads=4|0 3|10|60|30|Threads=4|tc:10+0.1;x1=-DONE_PAWN_HIST=4096 -DON
 BigHist1||0 3|10|150|30||tc:10+0.1;x1=-DONE_PAWN_HIST=4096 -DONE_CORR_HIST=65536
 PairesF|EvalFile=reseau/essais/kaggle/paires_e6.nnue|0 3|10|150|30||tc:10+0.1
 BonusTtF|BonusTtMove=364|0 3|10|150|30||tc:10+0.1
-BonusCntF|BonusCount=256|0 3|10|150|30||tc:10+0.1
+#PAUSE BonusCntF|BonusCount=256|0 3|10|150|30||tc:10+0.1
 MatHuitF|EvalFile=reseau/essais/kaggle/mat8_e5.nnue|0 3|10|150|30||tc:10+0.1
 LeelaF|EvalFile=reseau/essais/kaggle/leela_e6.nnue|0 3|10|150|30||tc:10+0.1
 ClesOne||-3 1|10|150|30||tc:10+0.1;x2=-DONE_CLES_V1
