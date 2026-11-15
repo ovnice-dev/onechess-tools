@@ -1,0 +1,59 @@
+# Configuration de lichess-bot pour Onechess (https://github.com/lichess-bot-devs/lichess-bot).
+# Copier ce fichier en config.yml dans le dossier de lichess-bot, puis remplacer le jeton.
+# Ne JAMAIS publier config.yml : il contient le jeton du compte.
+token: "JETON_A_REMPLIR"
+url: "https://lichess.org/"
+
+engine:
+  dir: "./engines/"                 # y mettre onechess.exe (le bon binaire) et onechess.nnue
+  name: "onechess-bmi2.exe"         # ou onechess-avx2.exe sur AMD Zen 1-2
+  protocol: "uci"
+  ponder: true
+  uci_options:
+    Move Overhead: 80               # marge reseau (ms) ; a ajuster a la latence de la machine
+    Threads: 4                      # selon la machine qui fait tourner le bot
+    Hash: 512
+    UCI_ShowWDL: true
+    # SyzygyPath: "./syzygy/"       # si des tables de finales sont installees
+  polyglot:
+    enabled: false                  # lichess-bot peut jouer un livre ; Onechess n'en a pas besoin
+  draw_or_resign:
+    resign_enabled: true
+    resign_score: -1000
+    resign_moves: 3
+    offer_draw_enabled: true
+    offer_draw_score: 0
+    offer_draw_moves: 10
+    offer_draw_pieces: 10
+
+challenge:
+  concurrency: 1
+  variants: [standard, chess960]
+  time_controls: [bullet, blitz, rapid, classical]
+  modes: [casual, rated]
+  accept_bot: true
+  min_base: 0
+  max_base: 1800
+  min_increment: 0
+  max_increment: 20
+
+greeting:
+  hello: "Hi! I'm {me}, a free and open-source chess engine (GPL-3.0). Good luck and have fun!"
+  goodbye: "Good game, thanks for playing!"
+  hello_spectators: "Hi! I'm {me}, a free and open-source chess engine. Source: github.com/ovnice-dev/onechess"
+  goodbye_spectators: "Thanks for watching!"
+
+matchmaking:
+  allow_matchmaking: true          # defie d'autres bots quand il est inactif
+  allow_during_games: false
+  challenge_variant: "standard"
+  challenge_timeout: 1             # apres 1 minute sans partie
+  challenge_initial_time: [60, 120]   # categorie choisie par categories.py (bullet, blitz, rapide)
+  challenge_increment: [1, 2]
+  opponent_rating_difference: 300
+  rating_preference: "none"
+  challenge_mode: "rated"
+  challenge_filter: coarse         # ne pas redefier un bot qui a refuse
+  include_challenge_block_list: false
+
+abort_time: 60                       # temps laisse a l'adversaire pour son 1er coup (20 s par defaut : trop court pour les humains)

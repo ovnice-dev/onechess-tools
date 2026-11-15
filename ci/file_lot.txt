@@ -1,0 +1,73 @@
+SharedHist2|Threads=2 SharedHistories=true|0 5|10|60|20|Threads=2 SharedHistories=false|tc:10+0.1
+ComboF|K1Ext=1 AspirationDelta=9 AspirationMinDepth=4 RfpMaxDepth=8 RazorMaxDepth=3 RazorMargin=292 NmpMinDepth=3 NmpBaseReduction=4 NmpDepthDiv=3 NmpEvalDiv=220 NmpMaxEvalR=3 ProbcutMinDepth=5 ProbcutMargin=175 IirMinDepth=4 LmpBase=3 LmpDepthFactor=1 FutilityMaxDepth=7 FutilityMargin=96 HistPruneMaxDepth=5 HistPruneMargin=3302 SeeCaptureMargin=130 SeeQuietMargin=15 LmrBase=55 LmrDivisor=264 LmrHistDiv=13091 SingularMinDepth=6 SingularBetaFactor=24 SingularExtraMargin=16 StatBonusMul=248 StatBonusSub=83 StatBonusMax=1808 StatMalusMul=509 StatMalusSub=108 StatMalusMax=1908 QsDeltaMargin=140 QsFutilityMargin=108 CorrHistDiv=10803 CorrHistWeight=1 CorrNpWeight=1 CorrContWeight=1 CorrMinorWeight=1 CorrMajorWeight=1 BadQuiets=13845 ThreatOrder=48 MalusDecay=942 LmrDeeperMargin=53 LmrShallowerMargin=8|0 5|10|150|20||tc:10+0.1
+SharedHist4|Threads=4 SharedHistories=true|0 5|10|60|20|Threads=4|tc:10+0.1
+SmpVote4|Threads=4 SmpVote=true|0 5|10|60|20|Threads=4|tc:10+0.1
+GreffeMenacesvsFinal|EvalFile=reseau/essais/kaggle/greffe_menaces.nnue|0 5|10|150|4||tc:10+0.1
+Smp4vs2|Threads=4|0 5|10|60|20|Threads=2|tc:10+0.1
+RfpCorrF|RfpCorr=32|0 3|10|150|20||tc:10+0.1
+InsufMatF|InsufMat=1|0 3|10|150|20||tc:10+0.1
+CorrExpertF|CorrExpert=1|0 3|10|150|20||tc:10+0.1
+UpRepJF|UpRepJ=1|0 3|10|150|20||tc:10+0.1
+RazorAllF|RazorAll=205|0 3|10|150|20||tc:10+0.1
+NmpOddThreadF|Threads=2 NmpOddThread=1|0 3|10|60|20|Threads=2|tc:10+0.1
+K1ExtF|K1Ext=1|0 3|10|150|20||tc:10+0.1
+R6MarginF|R6Margin=100|0 3|10|150|20||tc:10+0.1
+PcAdaptF|PcAdapt=100|0 3|10|150|20||tc:10+0.1
+FutCorrF|FutCorr=32|0 3|10|150|20||tc:10+0.1
+FirstLmrF|FirstLmr=4|0 3|10|150|20||tc:10+0.1
+FinalvsA|EvalFile=reseau/essais/kaggle/final_n5_1024.nnue|0 5|10|150|20||tc:10+0.1;x1=-DONE_HIDDEN_SIZE=1024
+R1024HSvsR1024|EvalFile=reseau/essais/local/r1024hs_perm.nnue|0 5|10|150|20|EvalFile=reseau/essais/local/r1024_n5_mat4_o4.nnue|tc:10+0.1;x1=-DONE_HIDDEN_SIZE=1024;x2=-DONE_HIDDEN_SIZE=1024
+ComboTriA|R6Margin=100 CorrExpert=1 RfpCorr=32|0 3|10|150|20||tc:10+0.1
+E8vsR|EvalFile=reseau/essais/local/e8_n5_mat8_o4.nnue|0 5|10|150|20|EvalFile=reseau/essais/local/r_n5_mat4_o4.nnue|tc:10+0.1
+A3vsR|EvalFile=reseau/essais/local/a3_perm.nnue|0 5|10|150|20|EvalFile=reseau/essais/local/r_n5_mat4_o4.nnue|tc:10+0.1
+# File des SPRT en lot (ci/file_lot.sh). Reference : valeurs par defaut,
+# signature 1019034 (reseau auto251 : Lichess 215,7 M + autojeu SF19 35,7 M, depuis le 26-10). NE PAS changer les valeurs par defaut tant que la file
+# tourne : les vagues suivantes testeraient contre une autre reference.
+# Nom|options du candidat|bornes|morceaux|parties|vagues max|options reference
+#ARRETE QvsE1|EvalFile=reseau/essais/local/q_mix_mat4_o4.nnue|0 5|10|150|20|EvalFile=reseau/essais/local/e1_mat4_o4.nnue|tc:10+0.1
+Spsa6N|LmrBase=55 LmrDivisor=267 LmrHistDiv=13230 NmpEvalDiv=224 FutilityMargin=100 HistPruneMargin=3356 SeeCaptureMargin=124 SeeQuietMargin=14 ProbcutMargin=175 SingularBetaFactor=24 SingularExtraMargin=17 StatBonusMul=256 StatBonusMax=1829 StatMalusMul=502 StatMalusMax=1902 QsFutilityMargin=109 QsDeltaMargin=139 RazorMargin=288 AspirationDelta=11 CorrHistDiv=10824 MalusDecay=926 ThreatOrder=48|0 3|6|1000|10|
+Spsa6T|LmrBase=55 LmrDivisor=267 LmrHistDiv=13230 NmpEvalDiv=224 FutilityMargin=100 HistPruneMargin=3356 SeeCaptureMargin=124 SeeQuietMargin=14 ProbcutMargin=175 SingularBetaFactor=24 SingularExtraMargin=17 StatBonusMul=256 StatBonusMax=1829 StatMalusMul=502 StatMalusMax=1902 QsFutilityMargin=109 QsDeltaMargin=139 RazorMargin=288 AspirationDelta=11 CorrHistDiv=10824 MalusDecay=926 ThreatOrder=48|0 3|10|300|20||tc:10+0.1
+Spsa7T|LmrBase=56 LmrDivisor=267 LmrHistDiv=13093 NmpEvalDiv=227 FutilityMargin=98 HistPruneMargin=3409 SeeCaptureMargin=131 SeeQuietMargin=14 ProbcutMargin=177 SingularBetaFactor=24 SingularExtraMargin=17 StatBonusMul=253 StatBonusMax=1817 StatMalusMul=496 StatMalusMax=1911 QsFutilityMargin=109 QsDeltaMargin=145 RazorMargin=289 AspirationDelta=9 CorrHistDiv=10871 MalusDecay=933 ThreatOrder=49|0 3|20|150|20||tc:10+0.1
+E2vsE1|EvalFile=reseau/essais/local/e2_mat4_o8.nnue|0 5|20|150|10|EvalFile=reseau/essais/local/e1_mat4_o4.nnue|tc:10+0.1
+AvsAuto251|EvalFile=reseau/essais/kaggle/a_tout.nnue|0 5|10|150|20|EvalFile=reseau/onechess.nnue|tc:10+0.1
+BvsA|EvalFile=reseau/essais/kaggle/b_lambda.nnue|0 5|10|150|20|EvalFile=reseau/essais/kaggle/a_tout.nnue|tc:10+0.1
+E3vsE1|EvalFile=reseau/essais/local/e3_k16_m_o8.nnue|0 5|10|150|20|EvalFile=reseau/essais/local/e1_mat4_o4.nnue|tc:10+0.1
+PvsE1|EvalFile=reseau/essais/local/p_fish_mat4_o4.nnue|0 5|10|150|20|EvalFile=reseau/essais/local/e1_mat4_o4.nnue|tc:10+0.1
+PvsE1b|EvalFile=reseau/essais/local/p_fish_mat4_o4.nnue|0 5|10|150|20|EvalFile=reseau/essais/local/e1_mat4_o4.nnue|tc:10+0.1
+Combo9bT|LmrBase=56 LmrDivisor=267 LmrHistDiv=13093 NmpEvalDiv=227 FutilityMargin=98 HistPruneMargin=3409 SeeCaptureMargin=131 SeeQuietMargin=14 ProbcutMargin=177 SingularBetaFactor=24 SingularExtraMargin=17 StatBonusMul=253 StatBonusMax=1817 StatMalusMul=496 StatMalusMax=1911 QsFutilityMargin=109 QsDeltaMargin=145 RazorMargin=289 AspirationDelta=9 CorrHistDiv=10871 MalusDecay=933 ThreatOrder=49 ExtLimit=1 IirSf=1|0 3|20|150|20||tc:10+0.1
+#ANCIENNE_REF CausalRedT|CausalRed=512|0 3|20|150|20||tc:10+0.1
+#ANCIENNE_REF TmDefendT|TmDefendPct=500 TmEarlySave=200|0 3|20|100|20||tc:20+0.2
+#FINI CausalRedT2|CausalRed=512|0 3|20|150|20||tc:10+0.1
+RvsE1|EvalFile=reseau/essais/local/r_n5_mat4_o4.nnue|0 5|10|150|20|EvalFile=reseau/essais/local/e1_mat4_o4.nnue|tc:10+0.1
+#ARRETE TmDefendT2|TmDefendPct=500 TmEarlySave=200|0 3|10|100|20||tc:20+0.2
+RHPvsR|EvalFile=reseau/essais/local/rhp_n5_mat4_o4.nnue|0 5|10|150|20|EvalFile=reseau/essais/local/r_n5_mat4_o4.nnue|tc:10+0.1
+R1024vsR|EvalFile=reseau/essais/local/r1024_n5_mat4_o4.nnue|0 5|10|150|20|EvalFile=reseau/essais/local/r_n5_mat4_o4.nnue|tc:10+0.1;x1=-DONE_HIDDEN_SIZE=1024
+Ri8vsR|EvalFile=reseau/essais/local/ri8_n5_mat4_o4.nnue|0 5|10|150|20|EvalFile=reseau/essais/local/r_n5_mat4_o4.nnue|tc:10+0.1;x1=-DONE_FT_INT8
+R1024HvsR1024|EvalFile=reseau/essais/local/r1024h_n5_mat4_o4.nnue|0 5|10|150|20|EvalFile=reseau/essais/local/r1024_n5_mat4_o4.nnue|tc:10+0.1;x1=-DONE_HIDDEN_SIZE=1024;x2=-DONE_HIDDEN_SIZE=1024
+#ARRETE SvsR|EvalFile=reseau/essais/local/s_mix_mat4_o4.nnue|0 5|10|150|20|EvalFile=reseau/essais/local/r_n5_mat4_o4.nnue|tc:10+0.1
+DrawJitterT|DrawJitter=1|0 3|10|150|20||tc:10+0.1
+RootTtSaveT|RootTtSave=1|0 3|10|150|20||tc:10+0.1
+RfpCorrT|RfpCorr=32|0 3|10|150|20||tc:10+0.1
+
+InsufMatT|InsufMat=1|0 3|10|150|20||tc:10+0.1
+CorrExpertT|CorrExpert=1|0 3|10|150|20||tc:10+0.1
+UpRepJT|UpRepJ=1|0 3|10|150|20||tc:10+0.1
+RazorAllT|RazorAll=205|0 3|10|150|20||tc:10+0.1
+Smp2vs1|Threads=2|0 5|10|60|10|Threads=1|tc:10+0.1
+NmpOddThreadT|Threads=2 NmpOddThread=1|0 3|10|60|20|Threads=2|tc:10+0.1
+K1ExtT|K1Ext=1|0 3|10|150|20||tc:10+0.1
+R6MarginT|R6Margin=100|0 3|10|150|20||tc:10+0.1
+PcAdaptT|PcAdapt=100|0 3|10|150|20||tc:10+0.1
+FutCorrT|FutCorr=32|0 3|10|150|20||tc:10+0.1
+FirstLmrT|FirstLmr=4|0 3|10|150|20||tc:10+0.1
+Spsa8bT|AspirationDelta=9 AspirationMinDepth=4 RfpMaxDepth=8 RazorMaxDepth=3 RazorMargin=292 NmpMinDepth=3 NmpBaseReduction=4 NmpDepthDiv=3 NmpEvalDiv=220 NmpMaxEvalR=3 ProbcutMinDepth=5 ProbcutMargin=175 IirMinDepth=4 LmpBase=3 LmpDepthFactor=1 FutilityMaxDepth=7 FutilityMargin=96 HistPruneMaxDepth=5 HistPruneMargin=3302 SeeCaptureMargin=130 SeeQuietMargin=15 LmrBase=55 LmrDivisor=264 LmrHistDiv=13091 SingularMinDepth=6 SingularBetaFactor=24 SingularExtraMargin=16 StatBonusMul=248 StatBonusSub=83 StatBonusMax=1808 StatMalusMul=509 StatMalusSub=108 StatMalusMax=1908 QsDeltaMargin=140 QsFutilityMargin=108 CorrHistDiv=10803 CorrHistWeight=1 CorrNpWeight=1 CorrContWeight=1 CorrMinorWeight=1 CorrMajorWeight=1 BadQuiets=13845 ThreatOrder=48 MalusDecay=942 LmrDeeperMargin=53 LmrShallowerMargin=8|0 3|10|150|20||tc:10+0.1
+RfpInsF|RfpCorr=32 InsufMat=1|0 3|10|150|20||tc:10+0.1
+QsFinF|QsFin=3|0 3|10|150|30||tc:10+0.1
+BigHist4|Threads=4|0 3|10|60|30|Threads=4|tc:10+0.1;x1=-DONE_PAWN_HIST=4096 -DONE_CORR_HIST=65536
+BigHist1||0 3|10|150|30||tc:10+0.1;x1=-DONE_PAWN_HIST=4096 -DONE_CORR_HIST=65536
+PairesF|EvalFile=reseau/essais/kaggle/paires_e6.nnue|0 3|10|150|30||tc:10+0.1
+BonusTtF|BonusTtMove=364|0 3|10|150|30||tc:10+0.1
+BonusCntF|BonusCount=256|0 3|10|150|30||tc:10+0.1
+MatHuitF|EvalFile=reseau/essais/kaggle/mat8_e5.nnue|0 3|10|150|30||tc:10+0.1
+LeelaF|EvalFile=reseau/essais/kaggle/leela_e6.nnue|0 3|10|150|30||tc:10+0.1
+ClesOne||-3 1|10|150|30||tc:10+0.1;x2=-DONE_CLES_V1
