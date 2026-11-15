@@ -9,15 +9,19 @@
 # oppose le candidat au dernier reseau adopte, au temps, binaires identiques.
 #   GH_TOKEN, REPO dans l'environnement ; HEBDO_X : options de compilation (ex. -DONE_HIDDEN_SIZE=1024)
 set -eu
-REPO=${REPO:-ovnice-dev/onechess}
+REPO=${REPO:-ovnice-dev/onechess-tools}   # ou tournent les vagues de match
+REL=${REL:-ovnice-dev/onechess}           # ou vivent les releases (candidats, versions)
+# Ecrire une release dans onechess depuis onechess-tools demande un jeton a part
+# (secret ONECHESS_TOKEN, cree par l'utilisateur) ; la lecture n'en a pas besoin.
+relw() { GH_TOKEN="${REL_TOKEN:-$GH_TOKEN}" gh release "$@" -R "$REL"; }
 BORNES="0 3"; MORCEAUX=10; PARTIES=150; VMAX=20; MODE="tc:10+0.1"
 X=${HEBDO_X:-}
 [ -n "$X" ] && MODE="$MODE;x1=$X;x2=$X"
-url() { gh release view "$1" -R "$REPO" --json assets -q ".assets[] | select(.name==\"$2\") | .url"; }
+url() { gh release view "$1" -R "$REL" --json assets -q ".assets[] | select(.name==\"$2\") | .url"; }
 
 # Reference : la derniere version publiee (vX.Y, depuis la 1.0 du 13-11) ; un reseau de la
 # semaine adopte devient la version suivante (v1.0 -> v1.1)
-ref=$(gh release list -R "$REPO" --exclude-pre-releases --limit 50 --json tagName,publishedAt \
+ref=$(gh release list -R "$REL" --exclude-pre-releases --limit 50 --json tagName,publishedAt \
       -q '[.[] | select(.tagName | test("^v[0-9]+[.][0-9]+$"))] | sort_by(.publishedAt) | last | .tagName' || true)
 [ -n "$ref" ] && [ "$ref" != "null" ] || { echo "aucune version publiee (release vX.Y) : rien a juger"; exit 0; }
 maj=${ref#v}; maj=${maj%%.*}; mineur=${ref##*.}
@@ -25,8 +29,8 @@ suivante="v$maj.$((mineur + 1))"
 REF_URL=$(url "$ref" onechess.nnue)
 echo "reference : $ref"
 
-for cand in $(gh release list -R "$REPO" --limit 50 --json tagName,isPrerelease -q '.[] | select(.isPrerelease) | .tagName' | grep '^candidat-' || true); do
-  corps=$(gh release view "$cand" -R "$REPO" --json body -q .body)
+for cand in $(gh release list -R "$REL" --limit 50 --json tagName,isPrerelease -q '.[] | select(.isPrerelease) | .tagName' | grep '^candidat-' || true); do
+  corps=$(gh release view "$cand" -R "$REL" --json body -q .body)
   case "$corps" in *VERDICT*) continue;; esac
   K=${cand#candidat-}; NOM="Hebdo$K"
   CAND_URL=$(url "$cand" onechess.nnue)
@@ -52,19 +56,19 @@ for cand in $(gh release list -R "$REPO" --limit 50 --json tagName,isPrerelease 
           engine/src/*.cpp engine/fathom/tbprobe.c -o moteur
       sig=$(printf 'setoption name EvalFile value onechess.nnue\nbench 12\nquit\n' | ./moteur | grep 'Noeuds totaux' | awk '{print $4}')
       echo "$sig" > signature.txt
-      gh release create "$suivante" onechess.nnue signature.txt -R "$REPO" --target main \
+      relw create "$suivante" onechess.nnue signature.txt --target main \
          --title "Onechess ${suivante#v}" \
          --notes "New network from continuous training (week $K). Time-control match against $ref: $(echo "$b" | tail -2 | head -1). bench 12 signature: $sig. Executables: build from source, or use those of the previous release with this network."
-      gh release edit "$cand" -R "$REPO" --notes "$corps
+      relw edit "$cand" --notes "$corps
 VERDICT H1 : adopte comme $suivante. $(echo "$b" | tail -2 | head -1)"
       ;;
     *"VERDICT H0"*)
-      gh release edit "$cand" -R "$REPO" --notes "$corps
+      relw edit "$cand" --notes "$corps
 VERDICT H0 : non adopte. $(echo "$b" | tail -2 | head -1)"
       ;;
     *)
       if [ "$v" -ge "$VMAX" ]; then
-        gh release edit "$cand" -R "$REPO" --notes "$corps
+        relw edit "$cand" --notes "$corps
 VERDICT NON CONCLU apres $v vagues : non adopte. $(echo "$b" | tail -2 | head -1)"
       else
         gh workflow run sprt_lot.yml -R "$REPO" -f nom="$NOM" -f opt1="EvalFile=$CAND_URL" -f opt2="EvalFile=$REF_URL" \

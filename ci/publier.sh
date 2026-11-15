@@ -13,7 +13,7 @@ export GIT_AUTHOR_EMAIL=268732922+ovnice-dev@users.noreply.github.com
 export GIT_COMMITTER_EMAIL=$GIT_AUTHOR_EMAIL
 # Depot du moteur (15-11) : le moteur seul, comme Stockfish ; les outils sont dans
 # onechess-tools. Liste blanche : tout le reste est retire.
-MOTEUR="engine reseau/onechess.nnue README.md README.fr.md LICENSE CONTRIBUTING.md CODE_OF_CONDUCT.md SECURITY.md .github .gitignore .gitattributes"
+MOTEUR="engine reseau/onechess.nnue README.md README.fr.md LICENSE CONTRIBUTING.md CODE_OF_CONDUCT.md SECURITY.md .github/ISSUE_TEMPLATE .github/PULL_REQUEST_TEMPLATE.md .gitignore .gitattributes"
 IDX=$(mktemp); rm -f "$IDX"
 GIT_INDEX_FILE=$IDX git read-tree main
 GIT_INDEX_FILE=$IDX git rm -r --cached -q --ignore-unmatch $PRIVES
@@ -45,7 +45,7 @@ fi
 
 # Depot des outils (ovnice-dev/onechess-tools, 13-11) : la meme branche main, reduite
 # aux dossiers d'outils, avec son propre README (sortie/outils/README.md).
-OUTILS="ci tools colab lichess data reseau/essais reseau/archives LICENSE .gitattributes"
+OUTILS="ci tools colab lichess data reseau/essais reseau/archives .github/workflows LICENSE .gitattributes"
 git remote get-url outils >/dev/null 2>&1 || { echo "(pas de remote outils : depot des outils non publie)"; exit 0; }
 IDX=$(mktemp); rm -f "$IDX"
 GIT_INDEX_FILE=$IDX git read-tree main

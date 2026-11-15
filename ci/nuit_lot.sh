@@ -4,7 +4,7 @@
 # (ils retrouvent une vague lancee par son nom, depuis ci/ref_depuis.txt).
 #   bash ci/nuit_lot.sh [nombre de tests=12] [vagues d'avance=3]
 cd /c/Onechess
-G="/c/Program Files/GitHub CLI/gh.exe"; REPO=ovnice-dev/onechess
+G="/c/Program Files/GitHub CLI/gh.exe"; REPO=ovnice-dev/onechess-tools
 NT=${1:-12}; NV=${2:-3}
 DEPUIS=$(cat ci/ref_depuis.txt)
 deja=$("$G" run list -R $REPO --workflow sprt_lot.yml --limit 200 --json displayTitle,createdAt,conclusion \

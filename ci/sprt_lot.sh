@@ -3,7 +3,7 @@
 #   bash ci/sprt_lot.sh Nom "Opt1=1 Opt2=3" [morceaux=8] [parties=2000] [bornes="0 5"] [vagues max=8] [mode=nodes] ["opt reference"]
 # Journal : ci_resultats/lot/Nom.log (lu par tools/panneau.sh).
 G="/c/Program Files/GitHub CLI/gh.exe"
-REPO=${REPO:-ovnice-dev/onechess}
+REPO=${REPO:-ovnice-dev/onechess-tools}
 cd /c/Onechess
 NOM=$1; OPT1=$2; M=${3:-8}; P=${4:-2000}; BORNES=${5:-"0 5"}; VMAX=${6:-8}; MODE=${7:-nodes}; OPT2=${8:-}
 D=ci_resultats/lot/$NOM; mkdir -p "$D"; J=ci_resultats/lot/$NOM.log

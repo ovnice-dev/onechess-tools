@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Moyenne des SPSA d'un lot GitHub (spsa_lot.yml) -> options UCI.
-    gh run download <id> -R ovnice-dev/onechess -D ci_resultats/spsa/<nom>
+    gh run download <id> -R ovnice-dev/onechess-tools -D ci_resultats/spsa/<nom>
     python ci/spsa_moy.py ci_resultats/spsa/<nom>
 Imprime "Nom=valeur ..." (moyenne arrondie), a passer en opt1 d'un SPRT."""
 import glob, json, sys, statistics
