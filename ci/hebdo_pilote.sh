@@ -58,7 +58,7 @@ for cand in $(gh release list -R "$REL" --limit 50 --json tagName,isPrerelease -
       echo "$sig" > signature.txt
       relw create "$suivante" onechess.nnue signature.txt --target main \
          --title "Onechess ${suivante#v}" \
-         --notes "New network from continuous training (week $K). Time-control match against $ref: $(echo "$b" | tail -2 | head -1). bench 12 signature: $sig. Executables: build from source, or use those of the previous release with this network."
+         --notes "New network from continuous training (week $K). Time-control match against $ref: $(echo "$b" | tail -2 | head -1 | sed "s/  *bornes.*//"). bench 12 signature: $sig. Executables: build from source, or use those of the previous release with this network."
       relw edit "$cand" --notes "$corps
 VERDICT H1 : adopte comme $suivante. $(echo "$b" | tail -2 | head -1)"
       ;;
