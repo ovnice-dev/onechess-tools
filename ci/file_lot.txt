@@ -76,3 +76,5 @@ BonusStatF|BonusStatDiv=32|0 3|10|150|30||tc:10+0.1
 NmpImpF|NmpImp=50|0 3|10|150|30||tc:10+0.1
 QsStandF|QsStandTt=1|0 3|10|150|30||tc:10+0.1
 LeelaMixF|EvalFile=reseau/essais/kaggle/leelamix_e6.nnue|0 3|10|150|30||tc:10+0.1
+CapBonusF|CapBonusPct=125|0 3|10|150|30||tc:10+0.1
+CapMalusF|CapMalusPct=75|0 3|10|150|30||tc:10+0.1
