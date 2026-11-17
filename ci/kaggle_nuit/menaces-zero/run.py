@@ -3,6 +3,8 @@
 # de zero, memes donnees, meme nombre de positions vues, meme pas :
 #   temoin         : sans menaces
 #   etroit_ennemis : bloc de 256 neurones, sans les defenses (-18 % de vitesse dans le moteur)
+# Donnees : TOUT nodes5000pv2_UHO (40 Go, ~10 G positions, ~320 Go sur le disque de 970 Go du TPU) :
+# les menaces ont 5 fois plus de poids que la base, elles ont besoin de beaucoup de positions differentes.
 # Juge : l'erreur de validation (meme fichier), puis un match au temps entre les deux reseaux.
 # Ne pas importer jax ici : le processus reserverait le TPU.
 import glob, io, os, re, subprocess, sys, tarfile, time, urllib.request
@@ -37,10 +39,10 @@ for mod, pip in (('optax', ['optax']), ('chess', ['chess']), ('torch', ['torch',
     except ImportError:
         subprocess.run([sys.executable, '-m', 'pip', 'install', '-q'] + pip, check=True)
 
-# Donnees : celles du final (le reseau les connait ; seule change l'architecture)
+# Donnees : tout le fichier, du premier au dernier octet
 code, _ = lancer([sys.executable, '-u', TOOLS + '/hf_sources.py', '--url',
                   'https://huggingface.co/datasets/official-stockfish/master-binpacks/resolve/main/nodes5000pv2_UHO.binpack',
-                  '--prefixe', 'n5', '--dest', '/tmp/donnees', '--octets', '7000000000', '--garde', '1.0', '--fixe', '240',
+                  '--prefixe', 'n5', '--dest', '/tmp/donnees', '--octets', '40300000000', '--garde', '1.0', '--fixe', '240',
                   '--graine', '17', '--morceau', '4000000000', '--parts', '4'], 'menaces.log')
 if code:
     sys.exit('preparation des donnees en echec')
