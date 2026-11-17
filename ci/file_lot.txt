@@ -82,3 +82,5 @@ Hebdo2vsV11|EvalFile=reseau/essais/kaggle/hebdo2.nnue|0 3|10|150|30||tc:10+0.1
 LeelaMixV11|EvalFile=reseau/essais/kaggle/leelamix_e6.nnue|0 3|10|150|30||tc:10+0.1
 LentV11|EvalFile=reseau/essais/kaggle/lent_v11.nnue|0 3|10|150|30||tc:10+0.1
 CapMalusF|CapMalusPct=75|0 3|10|150|30||tc:10+0.1
+Vitesse90||-30 30|10|150|6||tc:9+0.09/10+0.1
+Vitesse80||-30 30|10|150|6||tc:8+0.08/10+0.1

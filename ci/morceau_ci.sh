@@ -62,7 +62,10 @@ for o in ${OPT1:-} ${OPT2:-}; do
     case "$o" in Threads=*) t=${o#Threads=}; [ "$t" -gt "$TH" ] && TH=$t;; esac
 done
 if [[ "$MODE" == tc:* ]]; then
-    CAD="--tc ${MODE#tc:} --hash 64"; NC=$(( NC / (2 * TH) )); [ "$NC" -lt 1 ] && NC=1
+    # "tc:A/B" : cadence A pour le candidat, B pour la reference (mesure du prix de la vitesse)
+    T=${MODE#tc:}
+    if [[ "$T" == */* ]]; then CAD="--tc ${T%/*} --tc2 ${T#*/} --hash 64"; else CAD="--tc $T --hash 64"; fi
+    NC=$(( NC / (2 * TH) )); [ "$NC" -lt 1 ] && NC=1
 else
     CAD="--nodes1 100000 --nodes2 100000 --hash 32"
 fi
