@@ -87,7 +87,7 @@ def main():
         note(f"git : {r.stderr.strip()[:200]}")
         return
     neuf = os.path.join(SRC, "engine", "onechess.neuf")
-    r = sh("g++ -std=c++20 -O3 -DNDEBUG -flto=auto -fno-exceptions -march=native -pthread "
+    r = sh("g++ -std=c++20 -O3 -DNDEBUG -DONE_FIGE -flto=auto -fno-exceptions -march=native -pthread "
            f"-Ifathom src/*.cpp fathom/tbprobe.c -o {neuf}", os.path.join(SRC, "engine"))
     if r.returncode:
         note(f"compilation echouee : {r.stderr.strip()[-300:]}")
