@@ -1,0 +1,1 @@
+OrdMain,0,48,16 OrdSuite1,0,48,16 OrdSuite2,0,32,8 OrdSuite3,0,32,8 OrdSuite4,0,32,8 OrdSuite6,0,32,8 OrdPions,0,32,8 OrdEchec,0,32768,16384

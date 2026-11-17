@@ -86,3 +86,4 @@ Vitesse80||-30 30|10|150|6||tc:8+0.08/10+0.1
 CapMalusF|CapMalusPct=75|0 3|10|150|30||tc:10+0.1
 LmrTensionF|LmrTension=2|0 3|10|150|30||tc:10+0.1
 TmTensionF|TmTension=80|0 3|10|150|30||tc:10+0.1
+IidF|IidMin=6|0 3|10|150|30||tc:10+0.1
