@@ -1,0 +1,79 @@
+name: Lancement Kaggle de nuit
+
+# (Depuis le 17-11 dans onechess-tools : le depot prive n a plus de minutes gratuites.)
+# Toutes les heures : pousse chaque noyau de ci/kaggle_nuit/<nom>/ qui n'a pas
+# encore ete lance, des que son prealable (fichier "apres" : l'id du noyau
+# dont il reprend la sortie) est COMPLETE. Sert aux sessions de reprise des
+# entrainements longs, a enchainer un calcul processeur derriere un autre
+# (fichier "cpu" : pas de GPU), et a lancer un calcul des que le quota GPU revient,
+# meme PC eteint. Un noyau deja lance (en cours, fini ou en erreur) n'est
+# jamais repousse. Rien a faire = moins d'une minute.
+on:
+  schedule:
+    - cron: "7 * * * *"
+  workflow_dispatch:
+
+jobs:
+  lancer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install --quiet kaggle
+      - name: lancer si besoin
+        env:
+          KAGGLE_TOKEN: ${{ secrets.KAGGLE_TOKEN }}
+        run: |
+          [ -n "$KAGGLE_TOKEN" ] || { echo "secret KAGGLE_TOKEN absent"; exit 1; }
+          mkdir -p ~/.kaggle
+          printf '%s' "$KAGGLE_TOKEN" | tr -d '\r\n' > ~/.kaggle/access_token
+          chmod 600 ~/.kaggle/access_token
+          for d in ci/kaggle_nuit/*/; do
+            [ -f "$d/kernel-metadata.json" ] || continue
+            ID=$(python -c "import json;print(json.load(open('$d/kernel-metadata.json'))['id'])")
+            st=$(kaggle kernels status "$ID" 2>&1 || true)
+            if echo "$st" | grep -qE "RUNNING|QUEUED|COMPLETE|ERROR|CANCEL"; then
+              echo "$ID : deja lance ($st)"; continue
+            fi
+            if [ -f "$d/pas_avant" ]; then
+              PA=$(tr -d '\r\n' < "$d/pas_avant")
+              [ "$(date -u +%Y-%m-%dT%H:%M)" \> "$PA" ] || { echo "$ID : pas avant $PA (UTC)"; continue; }
+            fi
+            if [ -f "$d/apres" ]; then
+              AV=$(tr -d '\r\n' < "$d/apres")
+              sa=$(kaggle kernels status "$AV" 2>&1 || true)
+              echo "$sa" | grep -q "COMPLETE" || { echo "$ID : attend $AV ($sa)"; continue; }
+            fi
+            if [ -f "$d/cpu" ]; then
+              r=$(kaggle kernels push -p "$d" 2>&1 || true)
+            elif [ -f "$d/tpu" ]; then
+              # TPU v5e-8 (une seule session TPU a la fois chez Kaggle : sinon "pas encore")
+              r=$(kaggle kernels push -p "$d" --accelerator TpuV6E8 2>&1 || true)
+            else
+              r=$(kaggle kernels push -p "$d" --accelerator NvidiaTeslaT4 2>&1 || true)
+            fi
+            echo "$r"
+            echo "$r" | grep -q "successfully pushed" && echo "$ID : LANCE" || echo "$ID : pas encore (quota ?)"
+          done
+      - name: entrainement continu, deposer le candidat de la semaine
+        env:
+          GH_TOKEN: ${{ secrets.ONECHESS_TOKEN }}
+        run: |
+          # hebdo-K-2 fini -> son reseau hebdoK.nnue devient la pre-release candidat-K
+          # du depot public, que le pilote hebdo.yml y juge par un match au temps.
+          for d in ci/kaggle_nuit/hebdo-*-2/; do
+            [ -f "$d/kernel-metadata.json" ] || continue
+            ID=$(python -c "import json;print(json.load(open('$d/kernel-metadata.json'))['id'])")
+            K=$(basename "$d"); K=${K#hebdo-}; K=${K%-2}
+            gh release view "candidat-$K" -R ovnice-dev/onechess >/dev/null 2>&1 && continue
+            kaggle kernels status "$ID" 2>&1 | grep -q COMPLETE || continue
+            [ -n "$GH_TOKEN" ] || { echo "secret ONECHESS_TOKEN absent"; exit 1; }
+            mkdir -p sortie && kaggle kernels output "$ID" -p sortie >/dev/null
+            f=$(find sortie -name "hebdo$K.nnue" | head -1)
+            if [ -z "$f" ]; then echo "$ID : pas de hebdo$K.nnue (entrainement inacheve ?)"; continue; fi
+            cp "$f" onechess.nnue
+            gh release create "candidat-$K" onechess.nnue -R ovnice-dev/onechess --prerelease --target main \
+              --title "Week $K candidate" \
+              --notes "Network from continuous training, week $K. Judged by a time-control match against the current version."
+            echo "candidat-$K depose"
+          done
