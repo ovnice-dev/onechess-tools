@@ -90,3 +90,7 @@ SpsaTF|OrdSuite6=7 OrdEchec=16578 PriseFutBase=239 PriseFutPente=249 PriseFutHis
 R50F|R50Div=200|0 3|10|150|30||tc:10+0.1
 CoupAdF|CoupureAdoucie=1|0 3|10|150|30||tc:10+0.1
 LmrRefutF|LmrRefut=1|0 3|10|150|30||tc:10+0.1
+LmrEchecF|LmrEchec=1|0 3|10|150|30||tc:10+0.1
+LmrPriseF|LmrPrise=1|0 3|10|150|30||tc:10+0.1
+NmpTensionF|NmpTension=2|0 3|10|150|30||tc:10+0.1
+RfpTensionF|RfpTension=30|0 3|10|150|30||tc:10+0.1
