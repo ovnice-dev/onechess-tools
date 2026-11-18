@@ -15,6 +15,9 @@ on:
       reseau:
         description: "reseau a charger"
         default: "reseau/onechess.nnue"
+      partie:
+        description: "fichier de commandes UCI (positions a la suite, sans effacer la table) ; vide = bench"
+        default: ""
 
 jobs:
   profil:
@@ -45,11 +48,17 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq linux-tools-common linux-tools-$(uname -r) || sudo apt-get install -y -qq linux-tools-azure linux-tools-generic || true
           sudo sysctl -w kernel.perf_event_paranoid=-1 kernel.kptr_restrict=0
-          printf 'setoption name EvalFile value %s\nbench %s\nquit\n' "${{ inputs.reseau }}" "${{ inputs.profondeur }}" > entree.txt
+          if [ -n "${{ inputs.partie }}" ]; then
+            { printf 'setoption name EvalFile value %s\nsetoption name Hash value 128\n' "${{ inputs.reseau }}"; cat "${{ inputs.partie }}"; printf 'quit\n'; } > entree.txt
+          else
+            printf 'setoption name EvalFile value %s\nbench %s\nquit\n' "${{ inputs.reseau }}" "${{ inputs.profondeur }}" > entree.txt
+          fi
           ./onechess < entree.txt | tail -5 | tee ci_out/bench.txt
           perf record -F 1999 -g -o perf.data -- ./onechess < entree.txt > /dev/null
           perf report -i perf.data --stdio --no-children --sort symbol --percent-limit 0.3 -g none > ci_out/profil_plat.txt
           perf report -i perf.data --stdio --children --sort symbol --percent-limit 2 -g none > ci_out/profil_cumul.txt
+          # detail par ligne de source (les recoins oublies)
+          perf report -i perf.data --stdio --no-children --sort srcline --percent-limit 0.15 -g none > ci_out/profil_lignes.txt 2>/dev/null || true
           head -60 ci_out/profil_plat.txt
       - uses: actions/upload-artifact@v4
         if: always()

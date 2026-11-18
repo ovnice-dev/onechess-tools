@@ -1,0 +1,31 @@
+ucinewgame
+position fen rnb1r1k1/ppp1qppp/1b1p1n2/4p3/2BPP3/2P2N1P/PP3PP1/RNBQR1K1 w - - 0 1
+go nodes 1500000
+isready
+position fen r1bqk2r/pp1nppb1/n1pp2p1/7p/2PPP2P/2N1BP2/PP1Q2P1/R3KBNR w KQkq - 0 1
+go nodes 1500000
+isready
+position fen rnbq1rk1/ppp1p1b1/3p1pp1/7p/2PPP1nB/2N2N2/PP3PPP/R2QKB1R w KQ h6 0 1
+go nodes 1500000
+isready
+position fen rn1qk2r/pb2b1pp/1ppppn2/8/2P1P3/P1N2N2/1P3PPP/R1BQKB1R w KQkq - 0 1
+go nodes 1500000
+isready
+position fen r1b1kbnr/2q2ppp/p1p1p3/1p6/4P3/2N3P1/PPP2PBP/R1BQK2R w KQkq - 0 1
+go nodes 1500000
+isready
+position fen r1bqkb1r/3n1ppp/1pp1pn2/p1Pp4/1P1P1B2/P1N2N2/4PPPP/R2QKB1R w KQkq - 0 1
+go nodes 1500000
+isready
+position fen rnbqkb1r/pp2pppp/8/1N1pP3/3n1P2/8/PPP3PP/R1BQKB1R w KQkq - 0 1
+go nodes 1500000
+isready
+position fen rn1q1rk1/pb1p1ppp/1p2pn2/3p4/1bP1P3/2NB4/PP2NPPP/R1BQ1RK1 w - - 0 1
+go nodes 1500000
+isready
+position fen rnbqk2r/ppp2pb1/3pp2p/6p1/3PP1n1/2N1B3/PPPQ1PPP/2KR1BNR w kq - 0 1
+go nodes 1500000
+isready
+position fen rnb1kb1r/pp3ppp/4p3/2p5/3PP3/2P5/q2B1PPP/1R1QKBNR w Kkq - 0 1
+go nodes 1500000
+isready
