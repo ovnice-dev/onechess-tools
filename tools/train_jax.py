@@ -99,6 +99,60 @@ K_MEN = 64
 DIM_MEN = 59808
 CLIP_TH = 127 / QA   # poids des menaces en int8 dans le moteur (comme Stockfish), meme echelle QA
 
+# --paires 1 (phase 10, 18-11) : paires de pions (PP_3Wide de Stockfish 19, memes indices que
+# train.py et le moteur) : deux pions (des deux camps) sur la meme colonne ou des colonnes voisines.
+# Pion vu d'une perspective : 48 * (couleur != perspective) + case relative - 8 (96 places) ;
+# paire {hi, lo} -> hi * (hi - 1) / 2 + lo. Calcul dense (TPU) : produit des presences des deux
+# pions pour chaque paire possible (~1 400), puis un produit de matrices. Poids int16 dans le moteur.
+PAIRES = False
+LARG_PAIRES = 0     # --paires-largeur : neurones alimentes par les paires (0 = tous)
+PAIR_INPUTS = 96 * 95 // 2
+PAIRS_FLAG = 256
+
+
+def _paires_possibles():
+    I, J, X = [], [], []
+    for a in range(96):
+        for b in range(a):
+            fa, fb = (a % 48 + 8) & 7, (b % 48 + 8) & 7
+            if abs(fa - fb) <= 1:
+                I.append(a); J.append(b); X.append(a * (a - 1) // 2 + b)
+    return np.array(I), np.array(J), np.array(X)
+
+
+PAIRE_I, PAIRE_J, PAIRE_X = _paires_possibles()
+
+# --buckets k16 (phase 10, 18-11) : 16 cases de roi avec miroir (disposition de Stormphrax, celle de
+# tools/features.py et du moteur) au lieu des experts par materiel : roi de la perspective sur les
+# colonnes e-h -> echiquier retourne horizontalement, puis bucket = K16[case du roi].
+ROI = False
+K16 = np.array([0, 1, 2, 3, 3, 2, 1, 0, 4, 5, 6, 7, 7, 6, 5, 4, 8, 9, 10, 11, 11, 10, 9, 8,
+                8, 9, 10, 11, 11, 10, 9, 8, 12, 12, 13, 13, 13, 13, 12, 12, 12, 12, 13, 13, 13, 13, 12, 12,
+                14, 14, 15, 15, 15, 15, 14, 14, 14, 14, 15, 15, 15, 15, 14, 14])
+
+
+def avec_roi(x, nb):
+    """(B, 768) pieces d'une perspective -> (pieces miroir (B, 768), bucket one-hot (B, nb))."""
+    B = x.shape[0]
+    x3 = x.reshape(B, 12, 64)
+    ksq = jnp.argmax(x3[:, 5], axis=1)                                     # notre roi
+    flip = (ksq & 7) >= 4
+    xm = jnp.where(flip[:, None, None], x3.reshape(B, 12, 8, 8)[:, :, :, ::-1].reshape(B, 12, 64), x3)
+    ksq = jnp.where(flip, ksq ^ 7, ksq)
+    bk = jnp.asarray(K16)[ksq]
+    return xm.reshape(B, 768), (bk[:, None] == jnp.arange(nb)[None, :]).astype(jnp.float32)
+
+
+def presences_pions(x):
+    """(B, 768) pieces vues d'une perspective -> (B, 96) presences des pions (ordre du moteur)."""
+    return jnp.concatenate([x[:, 8:56], x[:, 384 + 8:384 + 56]], axis=1)
+
+
+def contribution_paires(p, x):
+    v = presences_pions(x)
+    P = v[:, PAIRE_I] * v[:, PAIRE_J]                      # (B, K) : 1 si les deux pions sont la
+    return jnp.matmul(P, p["pp"][PAIRE_X], precision=jax.lax.Precision.HIGHEST)
+
 
 def indices(codes, sqs, persp, nb):
     valid = codes < 12
@@ -131,10 +185,17 @@ def entrees_denses(r, nb, ob_n, lam):
     # Vue des noirs : couleurs echangees, echiquier retourne (case ^ 56 = rangee inversee)
     xb = jnp.concatenate([xw[:, 6:12], xw[:, 0:6]], axis=1).reshape(B, 12, 8, 8)[:, :, ::-1, :]
     xw, xb = xw.reshape(B, 768), xb.reshape(B, 768)
-    bande = jnp.clip((counts - 2) * nb // 32, 0, nb - 1)
-    ob1 = (bande[:, None] == jnp.arange(nb)[None, :]).astype(jnp.float32)
-    fw = (ob1[:, :, None] * xw[:, None, :]).reshape(B, nb * BASE)
-    fb = (ob1[:, :, None] * xb[:, None, :]).reshape(B, nb * BASE)
+    if ROI:   # cases de roi avec miroir : chaque perspective a son bucket ; les paires gardent x sans miroir
+        xwm, ow1 = avec_roi(xw, nb)
+        xbm, ob1b = avec_roi(xb, nb)
+        fw = (ow1[:, :, None] * xwm[:, None, :]).reshape(B, nb * BASE)
+        fb = (ob1b[:, :, None] * xbm[:, None, :]).reshape(B, nb * BASE)
+    else:
+        bande = jnp.clip((counts - 2) * nb // 32, 0, nb - 1)
+        ob1 = (bande[:, None] == jnp.arange(nb)[None, :]).astype(jnp.float32)
+        fw = (ob1[:, :, None] * xw[:, None, :]).reshape(B, nb * BASE)
+        fb = (ob1[:, :, None] * xb[:, None, :]).reshape(B, nb * BASE)
+        xwm, xbm = xw, xb
     sc = r[:, 24] | (r[:, 25] << 8)
     sc = jnp.where(sc >= 32768, sc - 65536, sc).astype(jnp.float32)
     stm = r[:, 26]
@@ -144,7 +205,7 @@ def entrees_denses(r, nb, ob_n, lam):
     res = jnp.where(stm == 0, res, 1.0 - res)
     tg = lam * jax.nn.sigmoid(sc / SCALE) + (1.0 - lam) * res
     ob = jnp.minimum((counts - 2) // (32 // ob_n), ob_n - 1)
-    return fw, fb, xw, xb, stm, ob, sc, tg
+    return fw, fb, xw, xb, stm, ob, sc, tg, xwm, xbm
 
 
 def quantifier(p, nb):
@@ -173,13 +234,20 @@ def predire(p, r, nb, ob_n, lam):
     else:
         tw = tb = 0.0
     if DENSE:
-        fw, fb, xw, xb, stm, ob, sc, tg = entrees_denses(r, nb, ob_n, lam)
+        fw, fb, xw, xb, stm, ob, sc, tg, xwm, xbm = entrees_denses(r, nb, ob_n, lam)
         hp = jax.lax.Precision.HIGHEST
         n = nb * BASE
-        aw = (jnp.matmul(fw, p["ft"][:n], precision=hp) + jnp.matmul(xw, p["ft_v"][:BASE], precision=hp)
+        aw = (jnp.matmul(fw, p["ft"][:n], precision=hp) + jnp.matmul(xwm, p["ft_v"][:BASE], precision=hp)
               + p["ft_bias"] + tw)
-        ab = (jnp.matmul(fb, p["ft"][:n], precision=hp) + jnp.matmul(xb, p["ft_v"][:BASE], precision=hp)
+        ab = (jnp.matmul(fb, p["ft"][:n], precision=hp) + jnp.matmul(xbm, p["ft_v"][:BASE], precision=hp)
               + p["ft_bias"] + tb)
+        if PAIRES:
+            pw_, pb_ = contribution_paires(p, xw), contribution_paires(p, xb)
+            h = p["ft_bias"].shape[0]
+            if pw_.shape[1] < h:   # bloc etroit : les paires n'alimentent que les premiers neurones
+                pw_ = jnp.pad(pw_, ((0, 0), (0, h - pw_.shape[1])))
+                pb_ = jnp.pad(pb_, ((0, 0), (0, h - pb_.shape[1])))
+            aw, ab = aw + pw_, ab + pb_
         s = stm[:, None] == 0
         us, them = jnp.where(s, aw, ab), jnp.where(s, ab, aw)
         x = jnp.concatenate([jnp.clip(us, 0, 1), jnp.clip(them, 0, 1)], axis=1)
@@ -223,6 +291,8 @@ def borner(p, nb):
     p["out_w"] = jnp.clip(p["out_w"], -CLIP, CLIP)
     if "th" in p:
         p["th"] = jnp.clip(p["th"], -CLIP_TH, CLIP_TH).at[DIM_MEN].set(0.0)
+    if "pp" in p:
+        p["pp"] = jnp.clip(p["pp"], -CLIP, CLIP).at[PAIR_INPUTS].set(0.0)
     if QAT:   # poids FUSIONNES bornes a 127/QA (int8 dans le moteur), ecart reporte sur la part du bucket
         n, h, c = nb * BASE, p["ft_bias"].shape[0], 127 / QA
         v = p["ft_v"][:BASE][None]
@@ -239,6 +309,8 @@ def nouveaux(nb, hidden, ob_n, graine):
     k = jax.random.split(jax.random.PRNGKey(graine), 3)
     n_in = nb * BASE
     th = {"th": jnp.zeros((DIM_MEN + 1, LARG_MEN or hidden))} if MENACES else {}   # a zero : greffe sans effet au depart
+    if PAIRES:
+        th["pp"] = jnp.zeros((PAIR_INPUTS + 1, LARG_PAIRES or hidden))
     return borner({**th,
         "ft": 0.01 * jax.random.normal(k[0], (n_in + 1, hidden)),
         "ft_v": 0.01 * jax.random.normal(k[1], (BASE + 1, hidden)),
@@ -279,6 +351,23 @@ def vers_torch(p):
 FULLTHREAT_FLAG = 4096   # moteur : bit 12 du champ activation (nnue.h)
 
 
+def ecrire_paires(chemin, pp, nb, hidden):
+    """Insere les paires de pions (int16, PAIR_INPUTS x hidden, zeros hors du bloc) juste apres
+    les biais de la 1re couche et leve PAIRS_FLAG : le format que lit le moteur (et check_nnue)."""
+    import struct
+    raw = bytearray(open(chemin, "rb").read())
+    act = struct.unpack_from("<I", raw, 20)[0]
+    struct.pack_into("<I", raw, 20, act | PAIRS_FLAG)
+    off = 24 + 64 + nb * BASE * hidden * 2 + hidden * 2
+    w = np.zeros((PAIR_INPUTS, hidden), np.float64)
+    w[:, :pp.shape[1]] = np.asarray(pp[:PAIR_INPUTS], dtype=np.float64)
+    q = np.round(w * QA)
+    if np.abs(q).max() > 32767:
+        raise SystemExit("paires hors int16")
+    open(chemin, "wb").write(bytes(raw[:off]) + q.astype("<i2").tobytes() + bytes(raw[off:]))
+    print(f"paires de pions inserees : {PAIR_INPUTS} x {hidden} int16 (bloc de {pp.shape[1]})", flush=True)
+
+
 def ecrire_menaces(chemin, th, nb, hidden, ennemis=False):
     """Insere les menaces completes apres les biais de la 1re couche d'un .nnue ecrit par
     train.export et leve le bit FULLTHREAT_FLAG : largeur du bloc (uint32), options
@@ -289,6 +378,8 @@ def ecrire_menaces(chemin, th, nb, hidden, ennemis=False):
     assert struct.unpack_from("<I", raw, 4)[0] == hidden and struct.unpack_from("<I", raw, 8)[0] == nb
     struct.pack_into("<I", raw, 20, act | FULLTHREAT_FLAG)
     off = 24 + 64 + nb * BASE * hidden * 2 + hidden * 2
+    if act & PAIRS_FLAG:   # les menaces viennent apres les paires
+        off += PAIR_INPUTS * hidden * 2
     q = np.clip(np.round(np.asarray(th[:DIM_MEN], dtype=np.float64) * QA), -127, 127).astype(np.int8)
     tete = struct.pack("<II", q.shape[1], int(ennemis))
     open(chemin, "wb").write(bytes(raw[:off]) + tete + q.tobytes() + bytes(raw[off:]))
@@ -303,7 +394,7 @@ def exporter(p, nb, hidden, ob_n, chemin, empirical, save_pt=""):
     m.load_state_dict(vers_torch(p), strict=False)
     with torch.no_grad():   # couches inutilisees par ce reseau : sans effet sur l'export
         pass
-    fmap = T.FeatureMap("mat8" if nb == 8 else "mat4", 0, "cpu")
+    fmap = T.FeatureMap("k16", True, "cpu") if ROI else T.FeatureMap("mat8" if nb == 8 else "mat4", 0, "cpu")
     T.export(m, fmap, chemin, hidden, empirical)
     if save_pt:
         torch.save(m.state_dict(), save_pt)
@@ -401,7 +492,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--stream", required=False, default="")
     ap.add_argument("--hidden", type=int, default=1024)
-    ap.add_argument("--buckets", default="mat4", choices=["mat4", "mat8"])
+    ap.add_argument("--buckets", default="mat4", choices=["mat4", "mat8", "k16"])
     ap.add_argument("--out-buckets", type=int, default=4)
     ap.add_argument("--epochs", type=int, default=20)
     ap.add_argument("--epoch-files", type=int, default=0)
@@ -424,21 +515,29 @@ def main():
     ap.add_argument("--menaces", type=int, default=0, help="1 = entrees menaces completes (phase 10, C)")
     ap.add_argument("--menaces-largeur", type=int, default=0, help="neurones alimentes par les menaces (0 = tous)")
     ap.add_argument("--menaces-ennemis", type=int, default=0, help="1 = sans les defenses")
+    ap.add_argument("--paires", type=int, default=0, help="1 = paires de pions (avec --ft-dense 1)")
+    ap.add_argument("--paires-largeur", type=int, default=0, help="neurones alimentes par les paires (0 = tous)")
     ap.add_argument("--ft-int8", type=int, default=0,
                     help="1 = QAT : 1re couche int8 dans le moteur (lancer avec ONE_QA=127, moteur -DONE_QA=127 -DONE_FT_INT8)")
     a = ap.parse_args()
-    global DENSE, MENACES, LARG_MEN, ENNEMIS, QAT
+    global DENSE, MENACES, LARG_MEN, ENNEMIS, QAT, PAIRES, LARG_PAIRES, ROI
     QAT = bool(a.ft_int8)
     if QAT:
         print(f"QAT : 1re couche int8, QA = {QA}, poids fusionnes bornes a {127 / QA:.3f}", flush=True)
     LARG_MEN, ENNEMIS = a.menaces_largeur, bool(a.menaces_ennemis)
     DENSE = bool(a.ft_dense)
     MENACES = bool(a.menaces)
+    PAIRES, LARG_PAIRES = bool(a.paires), a.paires_largeur
+    ROI = a.buckets == "k16"
+    if ROI and not DENSE:
+        raise SystemExit("--buckets k16 demande --ft-dense 1")
+    if PAIRES and not DENSE:
+        raise SystemExit("--paires demande --ft-dense 1")
     if a.verifier:
         return verifier(a)
     t0 = time.time()
 
-    nb, ob_n = (8 if a.buckets == "mat8" else 4), a.out_buckets
+    nb, ob_n = {"mat4": 4, "mat8": 8, "k16": 16}[a.buckets], a.out_buckets
     devs = jax.devices()
     nd = len(devs)
     print("appareils :", devs, flush=True)
@@ -532,7 +631,7 @@ def main():
             pickle.dump({"p": jax.tree.map(np.asarray, p), "st": jax.tree.map(np.asarray, st), "epoch": epoch,
                          "best": list(best), "best_p": best_p}, open(tmp, "wb"))
             os.replace(tmp, a.checkpoint)
-        if a.ckpt_torch and not MENACES:
+        if a.ckpt_torch and not MENACES and not PAIRES:
             vers_ckpt_torch(a.ckpt_torch, jax.tree.map(np.asarray, p), jax.tree.map(np.asarray, st), epoch, best,
                             best_p, nb, a.hidden, ob_n, a.lr, a.epochs)
         if a.limite_s and time.time() - t0 > a.limite_s:
@@ -541,6 +640,9 @@ def main():
     _, _, mx = validation(jax.tree.map(jnp.asarray, best_p))
     print(f"export de l'epoque {best[2]} ({best[1]:.1f} cp)", flush=True)
     exporter(best_p, nb, a.hidden, ob_n, a.out, int(round(mx * QA)), a.save_pt)
+    if PAIRES:
+        ecrire_paires(a.out, best_p["pp"], nb, a.hidden)
+        np.save(a.out + ".paires.npy", np.asarray(best_p["pp"], dtype=np.float32))
     if MENACES:
         ecrire_menaces(a.out, best_p["th"], nb, a.hidden, ENNEMIS)
         np.save(a.out + ".menaces.npy", np.asarray(best_p["th"], dtype=np.float32))

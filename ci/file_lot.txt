@@ -48,7 +48,6 @@ R1024HvsR1024|EvalFile=reseau/essais/local/r1024h_n5_mat4_o4.nnue|0 5|10|150|20|
 DrawJitterT|DrawJitter=1|0 3|10|150|20||tc:10+0.1
 RootTtSaveT|RootTtSave=1|0 3|10|150|20||tc:10+0.1
 RfpCorrT|RfpCorr=32|0 3|10|150|20||tc:10+0.1
-
 InsufMatT|InsufMat=1|0 3|10|150|20||tc:10+0.1
 CorrExpertT|CorrExpert=1|0 3|10|150|20||tc:10+0.1
 UpRepJT|UpRepJ=1|0 3|10|150|20||tc:10+0.1
