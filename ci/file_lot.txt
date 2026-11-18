@@ -94,3 +94,4 @@ LmrEchecF|LmrEchec=1|0 3|10|150|30||tc:10+0.1
 LmrPriseF|LmrPrise=1|0 3|10|150|30||tc:10+0.1
 NmpTensionF|NmpTension=2|0 3|10|150|30||tc:10+0.1
 RfpTensionF|RfpTension=30|0 3|10|150|30||tc:10+0.1
+CorrMenaceF|CorrMenaceWeight=1|0 3|10|150|30||tc:10+0.1

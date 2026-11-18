@@ -1,0 +1,1 @@
+TmStablePct,50,300,110 TmChangedPct,50,300,170 TmFallPct,0,50,10 TmEffortPct,0,1000,600 TmNoStartPct,30,100,60 TmInstMul,0,1000,250 TmClockPct,0,1000,900 TmSurprisePct,100,250,130
