@@ -99,6 +99,8 @@ def play_game(white, black, fen, cfg, gid):
     board = chess.Board(fen)
     clocks = {chess.WHITE: cfg["base"], chess.BLACK: cfg["base"]}
     inc = cfg["inc"]
+    mtg = cfg.get("mtg", 0)              # cadence repetee (40/x, comme la CCRL) : coups par controle
+    joues = {chess.WHITE: 0, chess.BLACK: 0}
     run, side = 0, None
 
     while True:
@@ -122,7 +124,8 @@ def play_game(white, black, fen, cfg, gid):
         else:
             lim = chess.engine.Limit(white_clock=clocks[chess.WHITE],
                                      black_clock=clocks[chess.BLACK],
-                                     white_inc=inc, black_inc=inc)
+                                     white_inc=inc, black_inc=inc,
+                                     remaining_moves=(mtg - joues[stm] % mtg) if mtg else None)
 
         t0 = time.perf_counter()
         try:
@@ -135,6 +138,9 @@ def play_game(white, black, fen, cfg, gid):
             if clocks[stm] < -cfg["tolerance"]:
                 return 0.0 if stm == chess.WHITE else 1.0
             clocks[stm] = max(0.0, clocks[stm]) + inc
+            joues[stm] += 1
+            if mtg and joues[stm] % mtg == 0:   # nouveau controle : le temps de base revient
+                clocks[stm] += cfg["base"]
 
         if res.move is None or res.move not in board.legal_moves:
             return 0.0 if stm == chess.WHITE else 1.0
@@ -230,8 +236,13 @@ def main():
     ap.add_argument("--seed", type=int, default=1)
     args = ap.parse_args()
 
-    base, inc = (args.tc.split("+") + ["0"])[:2]
-    cfg = {"base": float(base), "inc": float(inc), "max_moves": 160,
+    mtg = 0
+    if "/" in args.tc:                 # '40/10' : 40 coups en 10 s, repete
+        n, base = args.tc.split("/")
+        mtg, inc = int(n), "0"
+    else:
+        base, inc = (args.tc.split("+") + ["0"])[:2]
+    cfg = {"base": float(base), "inc": float(inc), "mtg": mtg, "max_moves": 160,
            "win_cp": 1200, "win_plies": 8, "tolerance": 0.4,
            "nodes": args.nodes}
 
