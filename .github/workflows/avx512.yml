@@ -1,0 +1,50 @@
+name: Vitesse AVX-512
+run-name: Vitesse AVX-512 (${{ inputs.machines }} machines)
+
+# Les machines GitHub sont tirees au sort (AMD EPYC ou Intel Xeon). Sur celles
+# qui ont l'AVX-512, on compare au banc le moteur AVX2 (x86-64-v3) et le moteur
+# AVX-512 (x86-64-v4, + VNNI si present), en alternant (ABBA), avec la meme
+# signature exigee. Les autres machines le disent et s'arretent.
+on:
+  workflow_dispatch:
+    inputs:
+      machines:
+        description: "nombre de machines tirees"
+        default: "20"
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      liste: ${{ steps.l.outputs.liste }}
+    steps:
+      - id: l
+        run: echo "liste=[$(seq -s, 1 ${{ inputs.machines }})]" >> "$GITHUB_OUTPUT"
+
+  mesure:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        m: ${{ fromJSON(needs.plan.outputs.liste) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ovnice-dev/onechess
+          path: moteur
+      - name: mesure
+        run: |
+          cd moteur
+          grep -m1 "model name" /proc/cpuinfo
+          if ! grep -q ' avx512bw ' /proc/cpuinfo; then echo "PAS D'AVX-512 sur cette machine"; exit 0; fi
+          V=""; grep -q ' avx512_vnni ' /proc/cpuinfo && V="-mavx512vnni"
+          echo "AVX-512 present ; VNNI : ${V:-non}"
+          F="-std=c++20 -O3 -DNDEBUG -DONE_FIGE -flto=auto -fno-exceptions -mtune=native -DUSE_PEXT -pthread -Iengine/fathom"
+          g++ $F -march=x86-64-v3 engine/src/*.cpp engine/fathom/tbprobe.c -o v3
+          g++ $F -march=x86-64-v4 $V engine/src/*.cpp engine/fathom/tbprobe.c -o v4
+          for e in v3 v4; do printf "setoption name EvalFile value reseau/onechess.nnue\nbench 12\nquit\n" | ./$e | grep "Noeuds totaux"; done
+          for r in 1 2 3 4; do for e in v3 v4 v4 v3; do
+            echo "$e $(printf "setoption name EvalFile value reseau/onechess.nnue\nbench 12\nquit\n" | ./$e | grep '^NPS' | awk '{print $NF}')"
+          done; done | awk '{if($2>m[$1])m[$1]=$2; s[$1]+=$2; n[$1]++} END{for(k in m) print "RESULTAT", k, "max", m[k], "moy", int(s[k]/n[k])}'
