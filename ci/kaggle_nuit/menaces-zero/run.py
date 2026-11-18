@@ -39,10 +39,46 @@ for mod, pip in (('optax', ['optax']), ('chess', ['chess']), ('torch', ['torch',
     except ImportError:
         subprocess.run([sys.executable, '-m', 'pip', 'install', '-q'] + pip, check=True)
 
-# Donnees : tout le fichier, du premier au dernier octet
+# Sonde (18-11) : le disque AFFICHE (~1 To) n'est pas forcement le vrai : sur GPU, l'ecriture
+# echouait vers 97 Go malgre 1 To affiche. On reserve vraiment la place, puis on la rend ; si
+# elle ne tient pas, on prend moins d'octets du fichier au lieu de tomber en route.
+os.makedirs('/tmp/donnees', exist_ok=True)
+with open('/proc/meminfo') as f:
+    print('MEMOIRE :', ' '.join(f.readline().split()[1:]), flush=True)
+
+
+def tient(go):
+    p = '/tmp/donnees/sonde.bin'
+    try:
+        fd = os.open(p, os.O_CREAT | os.O_WRONLY)
+        try:
+            os.posix_fallocate(fd, 0, int(go * 1e9))
+            return True
+        except OSError as e:
+            if e.errno not in (95,):   # 95 : reservation non geree, on ecrit pour de vrai
+                return False
+            bloc = bytes(1 << 26)
+            for _ in range(int(go * 1e9) >> 26):
+                os.write(fd, bloc)
+            return True
+        finally:
+            os.close(fd)
+    except OSError:
+        return False
+    finally:
+        if os.path.exists(p):
+            os.remove(p)
+
+
+GO_PAR_GO = 7.95   # disque occupe par Go de binpack (garde 1,0)
+disque = next((g for g in (340, 250, 180, 120, 90) if tient(g)), 60)
+octets = min(40_300_000_000, int(disque * 0.92 / GO_PAR_GO * 1e9))
+print(f"DISQUE : {disque} Go reserves avec succes -> {octets / 1e9:.1f} Go du fichier", flush=True)
+
+# Donnees : tout le fichier (ou ce qui tient sur le disque), du premier octet
 code, _ = lancer([sys.executable, '-u', TOOLS + '/hf_sources.py', '--url',
                   'https://huggingface.co/datasets/official-stockfish/master-binpacks/resolve/main/nodes5000pv2_UHO.binpack',
-                  '--prefixe', 'n5', '--dest', '/tmp/donnees', '--octets', '40300000000', '--garde', '1.0', '--fixe', '240',
+                  '--prefixe', 'n5', '--dest', '/tmp/donnees', '--octets', str(octets), '--garde', '1.0', '--fixe', '240',
                   '--graine', '17', '--morceau', '4000000000', '--parts', '4'], 'menaces.log')
 if code:
     sys.exit('preparation des donnees en echec')
