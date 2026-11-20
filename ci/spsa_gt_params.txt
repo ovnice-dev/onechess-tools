@@ -1,0 +1,1 @@
+TmMtgBase,400,1600,880 TmMtgPly,300,4000,1164 TmMtgCap,400,990,880 TmMtgPlafMax,20,120,63 TmMtgPlafBase,5,40,15 TmMtgPlafPente,30,300,110 TmPlafReste,500,950,840
