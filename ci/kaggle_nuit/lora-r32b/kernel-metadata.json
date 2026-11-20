@@ -1,0 +1,14 @@
+{
+ "id": "ovnice/onechess-lora-r32b",
+ "title": "onechess-lora-r32b",
+ "code_file": "run.py",
+ "language": "python",
+ "kernel_type": "script",
+ "is_private": true,
+ "enable_gpu": true,
+ "enable_internet": true,
+ "dataset_sources": [],
+ "machine_shape": "NvidiaTeslaT4",
+ "competition_sources": [],
+ "kernel_sources": []
+}

@@ -494,7 +494,15 @@ class Perspective(nn.Module):
         if not self.rang:
             return self.ft(idx)
         e = (idx.min(1).values // BASE_INPUTS).clamp_(0, self.nexp - 1)   # l'expert de la position
-        return torch.bmm(self.ft(idx).unsqueeze(1), self.ftB[e]).squeeze(1)
+        a = self.ft(idx)                                                   # (N, rang)
+        # expert par expert (20-11) : copier B[expert] pour chaque position
+        # demandait N x rang x hidden flottants (8 Go pour un lot de 65 536)
+        out = a.new_zeros(a.shape[0], self.ftB.shape[2])
+        for k in range(self.nexp):
+            m = (e == k).nonzero(as_tuple=True)[0]
+            if m.numel():
+                out = out.index_copy(0, m, a.index_select(0, m) @ self.ftB[k])
+        return out
 
     def ft_poids(self):
         """Poids propres aux experts, en pleine largeur (export)."""

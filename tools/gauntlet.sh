@@ -26,7 +26,7 @@
 set -u
 cd /c/Onechess
 
-ONE=engine/bin/onechess.exe
+ONE=${ONE:-engine/bin/onechess.exe}
 NET=C:/Onechess/engine/bin/onechess.nnue
 TC=${TC:-10+0.1}
 GAMES=${GAMES:-300}
