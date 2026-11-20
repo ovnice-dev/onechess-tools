@@ -423,8 +423,13 @@ def epoch_files(n, k, epoch, seed):
 
 class Perspective(nn.Module):
     def __init__(self, n_inputs, hidden, out_buckets=1, factorizer=False,
-                 activation="crelu", pairs=False, threats=False, l1=0, l2=0, pairmul=False):
+                 activation="crelu", pairs=False, threats=False, l1=0, l2=0, pairmul=False, rang=0):
         super().__init__()
+        # rang > 0 (20-11, idee « mini-LoRA ») : l'ecart de chaque expert au tronc
+        # commun est de faible rang, A[caracteristique] (rang valeurs) x B[expert]
+        # (rang x hidden). Beaucoup moins de parametres par expert ; a l'export,
+        # le produit est replie en poids complets : le moteur ne change pas.
+        self.rang = rang
         # Couches cachees (l1 > 0) : une pile par bucket de sortie,
         # 2*hidden -> l1 -> l2 -> 1, activations CReLU. Sans elles, la sortie
         # est un seul produit scalaire.
@@ -453,8 +458,11 @@ class Perspective(nn.Module):
         self.activation  = activation
         self.factorizer  = factorizer and n_inputs > BASE_INPUTS
         self.ft_clip     = 0.0   # fixe par --ft-int8
-        self.ft      = nn.EmbeddingBag(n_inputs + 1, hidden, mode="sum",
+        self.ft      = nn.EmbeddingBag(n_inputs + 1, rang if rang else hidden, mode="sum",
                                        padding_idx=n_inputs)
+        if rang:
+            self.nexp = n_inputs // BASE_INPUTS
+            self.ftB  = nn.Parameter(torch.zeros(self.nexp, rang, hidden))
 
         # Tronc commun : les memes 768 caracteristiques, sans distinction de
         # bucket. Chaque bucket n'a plus qu'a apprendre son ECART au tronc, et
@@ -475,15 +483,30 @@ class Perspective(nn.Module):
             self.h2 = nn.Linear(l1, l2 * out_buckets)
             self.h3 = nn.Linear(l2, out_buckets)
 
-        nn.init.normal_(self.ft.weight, std=0.01)
+        nn.init.normal_(self.ft.weight, std=0.1 if rang else 0.01)
         with torch.no_grad():
             self.ft.weight[n_inputs].zero_()
             nn.init.normal_(self.out.weight, std=0.05)
             self.out.bias.zero_()
 
+    def ft_acc(self, idx):
+        """Part propre aux experts de l'accumulateur (pleine, ou de faible rang)."""
+        if not self.rang:
+            return self.ft(idx)
+        e = (idx.min(1).values // BASE_INPUTS).clamp_(0, self.nexp - 1)   # l'expert de la position
+        return torch.bmm(self.ft(idx).unsqueeze(1), self.ftB[e]).squeeze(1)
+
+    def ft_poids(self):
+        """Poids propres aux experts, en pleine largeur (export)."""
+        n = self.ft.weight.shape[0] - 1
+        if not self.rang:
+            return self.ft.weight[:n]
+        a = self.ft.weight[:n].view(self.nexp, BASE_INPUTS, self.rang)
+        return torch.bmm(a, self.ftB).reshape(n, -1)
+
     def forward(self, idx_w, idx_b, stm, obuck):
-        aw = self.ft(idx_w[0]) + self.ft_bias
-        ab = self.ft(idx_b[0]) + self.ft_bias
+        aw = self.ft_acc(idx_w[0]) + self.ft_bias
+        ab = self.ft_acc(idx_b[0]) + self.ft_bias
         if self.factorizer:
             aw = aw + self.ft_v(idx_w[1])
             ab = ab + self.ft_v(idx_b[1])
@@ -521,7 +544,8 @@ class Perspective(nn.Module):
 
     def clip_weights(self):
         with torch.no_grad():
-            self.ft.weight.clamp_(-1.98, 1.98)
+            if not self.rang:
+                self.ft.weight.clamp_(-1.98, 1.98)
             self.ft_bias.clamp_(-1.98, 1.98)
             self.out.weight.clamp_(-1.98, 1.98)
             if self.l1:
@@ -541,7 +565,7 @@ class Perspective(nn.Module):
             # (ONE_FT_INT8 : |poids| <= 127 / QA). On borne le poids FUSIONNE
             # (bucket + tronc), celui que l'export ecrit, en reportant l'ecart
             # sur la part du bucket.
-            if self.ft_clip:
+            if self.ft_clip and not self.rang:
                 c = self.ft_clip
                 n = self.ft.weight.shape[0] - 1
                 if self.factorizer:
@@ -554,7 +578,7 @@ class Perspective(nn.Module):
 
 def export(model, fmap, path, hidden, empirical=None):
     with torch.no_grad():
-        fw = model.ft.weight[:fmap.n_inputs].cpu().numpy()
+        fw = model.ft_poids()[:fmap.n_inputs].cpu().numpy()
         if model.factorizer:
             # Le tronc commun est additionne a chaque bucket : le fichier
             # produit est un reseau ordinaire, sans trace de la factorisation.
@@ -664,6 +688,8 @@ def main():
     ap.add_argument("--activation", default="crelu",
                     choices=list(ACTIVATIONS),
                     help="crelu = clamp(a,0,1), screlu = clamp(a,0,1)^2")
+    ap.add_argument("--rang-expert", type=int, default=0,
+                    help="ecart de chaque expert au tronc de faible rang (0 = plein)")
     ap.add_argument("--factorizer", type=int, default=1,
                     help="tronc commun partage entre buckets de roi")
     ap.add_argument("--limit", type=int, default=0)
@@ -797,7 +823,7 @@ def main():
     fmap  = FeatureMap(args.buckets, bool(args.mirror), dev)
     model = Perspective(fmap.n_inputs, args.hidden, args.out_buckets,
                         bool(args.factorizer), args.activation, bool(args.pairs),
-                        bool(args.threats), args.l1, args.l2, bool(args.pairmul)).to(dev)
+                        bool(args.threats), args.l1, args.l2, bool(args.pairmul), args.rang_expert).to(dev)
     if args.l1 and (args.activation != "crelu" or args.threats):
         raise SystemExit("--l1 : CReLU seulement, sans menaces")
     if args.ft_int8:
@@ -1004,7 +1030,7 @@ def main():
             c, sq, *_ = vdata.batch(sub)
             iw, ib = feats(c, sq)
             for idx in (iw, ib):
-                acc = model.ft(idx[0]) + model.ft_bias
+                acc = model.ft_acc(idx[0]) + model.ft_bias
                 if model.factorizer:
                     acc = acc + model.ft_v(idx[1])
                 if model.pairs:
