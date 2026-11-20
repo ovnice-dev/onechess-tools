@@ -102,7 +102,7 @@ for nom, opts in VARIANTES:
     vitesse[nom] = int(m.group(1).replace(',', '')) if m else 0
     print(f"VITESSE {nom} : {vitesse[nom]:,} positions/s", flush=True)
 plus_lente = min(v for v in vitesse.values() if v > 0)
-budget = int(3.4 * 3600)   # par variante
+budget = int(3.0 * 3600)   # par variante (20-11 : lancee avec les 7 h 39 restantes de la semaine)
 epoques = max(4, min(100, int(budget * plus_lente / 300e6)))
 print(f"EPOQUES par variante : {epoques} (variante la plus lente : {plus_lente:,} positions/s)", flush=True)
 
