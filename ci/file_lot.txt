@@ -92,6 +92,7 @@ GrandV11|EvalFile=reseau/essais/kaggle/donnees_grand.nnue|0 3|10|150|30||tc:10+0
 TtRajeunirF|Threads=2 TtRajeunir=0|0 3|10|60|20|Threads=2|tc:10+0.1
 SoupeA|EvalFile=reseau/essais/kaggle/soupe_a.nnue|0 3|10|150|30||tc:10+0.1
 SoupeB|EvalFile=reseau/essais/kaggle/soupe_b.nnue|0 3|10|150|30||tc:10+0.1
+LoraR32|EvalFile=reseau/essais/kaggle/lora_r32.nnue|0 5|10|150|30|EvalFile=reseau/essais/kaggle/lora_plein.nnue|tc:10+0.1
 R50F|R50Div=200|0 3|10|150|30||tc:10+0.1
 CoupAdF|CoupureAdoucie=1|0 3|10|150|30||tc:10+0.1
 LmrRefutF|LmrRefut=1|0 3|10|150|30||tc:10+0.1
