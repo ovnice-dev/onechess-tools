@@ -1,0 +1,1 @@
+OrdSuite6=7 OrdEchec=16578 PriseFutBase=239 PriseFutPente=249 PriseFutHist=132 FutHistDiv=197 RfpStatDiv=303 ProbcutProgres=65 EcartMin=186 EcartMax=197 EcartDecal=53 ReculMarge=165 NoteStatDecal=3755 BonusApresLmr=1377 TriPlancher=3037
