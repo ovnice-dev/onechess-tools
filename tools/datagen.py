@@ -152,7 +152,15 @@ class RawEngine:
 def worker(wid, args, openings, out_path, queue):
     rng = random.Random(args.seed + wid * 7919)
     eng = RawEngine(args.engine, threads=1, hash_mb=args.hash)
-
+    # --joueur (21-11, idee de l'utilisateur) : un AUTRE moteur choisit les coups
+    # (Onechess), le moteur --engine (Stockfish) ne fait que noter les positions.
+    # Les positions sont alors celles ou va Onechess, notees par Stockfish.
+    joueur = None
+    if args.joueur:
+        joueur = RawEngine(args.joueur, threads=1, hash_mb=args.hash)
+        if args.joueur_reseau:
+            joueur._send(f"setoption name EvalFile value {args.joueur_reseau}")
+            joueur.isready()
     written  = 0
     rejected = 0        # departs ecartes par le filtre d'equilibre
     buf = bytearray()
@@ -181,6 +189,8 @@ def worker(wid, args, openings, out_path, queue):
                 continue
 
             eng.new_game()
+            if joueur:
+                joueur.new_game()
             root_fen = board.fen()
 
             # Filtre d'equilibre. Des coups tires au hasard produisent parfois
@@ -205,6 +215,8 @@ def worker(wid, args, openings, out_path, queue):
                     break
 
                 uci, score, is_mate = eng.search(root_fen, moves, args.nodes)
+                if joueur and uci != "(none)" and score is not None:
+                    uci = joueur.search(root_fen, moves, args.joueur_noeuds)[0]
                 if uci == "(none)" or score is None:
                     result = 1
                     break
@@ -274,6 +286,8 @@ def worker(wid, args, openings, out_path, queue):
             f.write(buf)
 
     eng.quit()
+    if joueur:
+        joueur.quit()
     queue.put(("done", wid, written, rejected))
 
 
@@ -298,6 +312,9 @@ def main():
     ap.add_argument("--openings", default=r"C:\Onechess\data\openings.epd")
     ap.add_argument("--out", default=r"C:\Onechess\data\nnue")
     ap.add_argument("--positions", type=int, default=20_000_000)
+    ap.add_argument("--joueur", default="", help="moteur qui choisit les coups (--engine ne fait que noter)")
+    ap.add_argument("--joueur-reseau", default="", help="EvalFile du moteur joueur")
+    ap.add_argument("--joueur-noeuds", type=int, default=5000)
     ap.add_argument("--workers", type=int, default=6)
     ap.add_argument("--nodes", type=int, default=5000)
     ap.add_argument("--hash", type=int, default=16)
