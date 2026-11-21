@@ -1,0 +1,464 @@
+<title>Atlas NNUE</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chivo:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Mise en page : une console d'inspection. Bandeau du réseau, puis la carte des neurones à gauche et la fiche du neurone à droite,
+   puis les experts, l'explorateur de positions et les doublons. Couleur d'activité : un ambre « thermique », poids négatifs en bleu. */
+:root {
+  --bg: #f3f4f7; --panel: #ffffff; --ink: #17202c; --muted: #5d6878; --line: #d9dde5; --soft: #e9ecf2;
+  --accent: #c2600f; --hot: #e0821c; --cold: #2f6fb3; --dead: #9aa3b2; --ok: #2c8a5a; --warn: #b8860b; --crit: #b33a3a;
+  --sq-light: #e8e2d4; --sq-dark: #b9a98c;
+  --f-display: "Chivo", "Segoe UI", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f141b; --panel: #161d27; --ink: #e6ebf2; --muted: #95a1b3; --line: #2a3442; --soft: #1d2632;
+  --accent: #f0a050; --hot: #f2a64a; --cold: #5b9be0; --dead: #5a6577; --ok: #4fbf87; --warn: #e3b341; --crit: #e26b6b;
+  --sq-light: #4a4639; --sq-dark: #332f26; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0f141b; --panel: #161d27; --ink: #e6ebf2; --muted: #95a1b3; --line: #2a3442; --soft: #1d2632;
+  --accent: #f0a050; --hot: #f2a64a; --cold: #5b9be0; --dead: #5a6577; --ok: #4fbf87; --warn: #e3b341; --crit: #e26b6b;
+  --sq-light: #4a4639; --sq-dark: #332f26; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 14px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 48px }
+.wrap { max-width: 1240px; margin: 0 auto; display: grid; gap: 20px }
+h1, h2, h3 { font-family: var(--f-display); margin: 0; text-wrap: balance; letter-spacing: -0.01em }
+h1 { font-size: 1.9rem; font-weight: 800 }
+h2 { font-size: 1.15rem; font-weight: 700 }
+h3 { font-size: .95rem; font-weight: 700 }
+.eyebrow { font-family: var(--f-mono); font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted) }
+.mono, .num { font-family: var(--f-mono); font-variant-numeric: tabular-nums }
+.muted { color: var(--muted) }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 12px; min-width: 0 }
+header.top { display: flex; flex-wrap: wrap; gap: 16px; align-items: end; justify-content: space-between }
+.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center }
+select, button, .file { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 7px; padding: 6px 10px; cursor: pointer }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600 }
+button:focus-visible, select:focus-visible, .file:focus-within, canvas:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden }
+.seg button { border: 0; border-radius: 0; background: transparent }
+.seg button[aria-pressed="true"] { background: var(--soft); color: var(--accent); font-weight: 600 }
+.file input { display: none }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px }
+.fact { border-left: 3px solid var(--line); padding-left: 10px }
+.fact b { display: block; font-family: var(--f-mono); font-size: 1.15rem; font-variant-numeric: tabular-nums }
+.arch { overflow-x: auto }
+.arch svg { display: block; min-width: 760px; width: 100% }
+.grid2 { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 20px }
+@media (max-width: 900px) { .grid2 { grid-template-columns: 1fr } }
+.mapwrap { position: relative }
+#carte { width: 100%; height: auto; display: block; border-radius: 6px; background: var(--soft); touch-action: manipulation }
+.legend { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: .8rem; color: var(--muted) }
+.ramp { height: 10px; width: 160px; border-radius: 3px; border: 1px solid var(--line) }
+.tip { position: absolute; pointer-events: none; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: .78rem; box-shadow: 0 4px 14px rgba(0,0,0,.15); white-space: nowrap }
+.chips { display: flex; flex-wrap: wrap; gap: 6px }
+.chip { font-size: .74rem; padding: 2px 8px; border-radius: 99px; border: 1px solid var(--line); font-weight: 600 }
+.chip.mort { color: var(--crit); border-color: var(--crit) }
+.chip.rare { color: var(--warn); border-color: var(--warn) }
+.chip.sat { color: var(--accent); border-color: var(--accent) }
+.chip.ok { color: var(--ok); border-color: var(--ok) }
+.bars { display: grid; gap: 6px }
+.bar { display: grid; grid-template-columns: 92px 1fr 64px; gap: 8px; align-items: center; font-size: .82rem }
+.bar .t { height: 10px; background: var(--soft); border-radius: 3px; overflow: hidden }
+.bar .t i { display: block; height: 100%; background: var(--hot) }
+table { border-collapse: collapse; width: 100%; font-size: .85rem }
+th, td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: right; font-variant-numeric: tabular-nums }
+th:first-child, td:first-child { text-align: left }
+th { font-weight: 600; color: var(--muted); font-size: .78rem }
+.tablewrap { overflow-x: auto }
+.boards { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px }
+@media (max-width: 560px) { .boards { grid-template-columns: repeat(3, minmax(0, 1fr)) } }
+.boards figure { margin: 0; display: grid; gap: 3px; min-width: 0 }
+.boards canvas { width: 100%; height: auto; aspect-ratio: 1; border-radius: 3px; max-width: 100% }
+.boards figcaption { font-size: .7rem; color: var(--muted); text-align: center }
+.row { display: flex; flex-wrap: wrap; gap: 20px; align-items: start }
+.board { display: grid; grid-template-columns: repeat(8, 1fr); width: min(320px, 100%); aspect-ratio: 1; border-radius: 4px; overflow: hidden; border: 1px solid var(--line) }
+.board div { display: grid; place-items: center; font-size: clamp(16px, 4.2vw, 30px); line-height: 1 }
+.board .l { background: var(--sq-light) } .board .d { background: var(--sq-dark) }
+.pw { color: #fff; text-shadow: 0 0 2px #000, 0 0 1px #000 } .pb { color: #111; text-shadow: 0 0 2px #fff }
+.list { display: grid; gap: 4px; font-size: .84rem }
+.list button { text-align: left; display: flex; justify-content: space-between; gap: 10px; padding: 4px 8px; border-color: transparent; background: var(--soft) }
+.note { font-size: .82rem; color: var(--muted); max-width: 70ch }
+.err { color: var(--crit); font-weight: 600 }
+.split { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px }
+#mini { width: 100%; max-width: 320px; height: auto; border-radius: 4px; background: var(--soft) }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="eyebrow">Onechess · première couche du réseau</div>
+      <h1>Atlas NNUE</h1>
+      <p class="note" id="sous">Chargement du réseau et des positions…</p>
+    </div>
+    <div class="controls">
+      <label class="file" title="Ouvrir un fichier .nnue de ton disque">Ouvrir un autre réseau<input id="fichier" type="file" accept=".nnue,.bin"></label>
+    </div>
+  </header>
+
+  <section class="panel" aria-label="Le réseau">
+    <div class="facts" id="faits"></div>
+    <div class="arch"><svg id="archi" viewBox="0 0 980 190" role="img" aria-label="Schéma des couches du réseau"></svg></div>
+    <p class="note">L'accumulateur est calculé deux fois, une fois vu par chaque camp. Le moteur le met à jour pièce par pièce, d'où sa vitesse. Chaque expert a ses propres poids d'entrée et s'active selon le nombre de pièces sur l'échiquier.</p>
+  </section>
+
+  <div class="grid2">
+    <section class="panel" aria-label="Carte des neurones">
+      <div class="controls" style="justify-content:space-between">
+        <h2>Les 1 024 neurones</h2>
+        <div class="seg" role="group" aria-label="Vue">
+          <button id="v2d" aria-pressed="true">2D</button><button id="v3d" aria-pressed="false">3D</button>
+        </div>
+      </div>
+      <div class="controls">
+        <label>Expert <select id="expert"></select></label>
+        <label>Couleur <select id="metrique">
+          <option value="taux">Taux d'allumage</option>
+          <option value="contrib">Poids dans la décision</option>
+          <option value="sortie">Poids de sortie (côté trait)</option>
+          <option value="etat">État (mort, rare, saturé)</option>
+        </select></label>
+      </div>
+      <div class="mapwrap"><canvas id="carte" width="640" height="640" tabindex="0" aria-label="Carte des neurones : un carré par neurone"></canvas><div class="tip" id="tip" hidden></div></div>
+      <div class="legend" id="legende"></div>
+      <p class="note" id="noteCarte"></p>
+    </section>
+
+    <section class="panel" aria-label="Fiche du neurone" id="fiche"></section>
+  </div>
+
+  <section class="panel" aria-label="Experts">
+    <h2>Les experts</h2>
+    <div class="tablewrap"><table id="experts"></table></div>
+    <p class="note">« Jamais allumé » veut dire jamais allumé dans cet expert, sur l'échantillon. Un neurone éteint dans un expert sert souvent dans un autre : il est spécialisé, pas perdu. « 50 % de la décision » : nombre de neurones qui portent à eux seuls la moitié de la sortie.</p>
+  </section>
+
+  <section class="panel" aria-label="Explorateur de positions">
+    <div class="controls" style="justify-content:space-between">
+      <h2>Une position, vue par le réseau</h2>
+      <div class="controls"><button id="prec">Précédente</button><span class="mono" id="numPos"></span><button id="suiv">Suivante</button><button id="hasard">Au hasard</button></div>
+    </div>
+    <div class="row">
+      <div class="board" id="echiquier" aria-label="Échiquier"></div>
+      <div style="display:grid;gap:10px;min-width:0;flex:1 1 260px">
+        <div class="facts" id="posFaits"></div>
+        <div><div class="eyebrow">Neurones allumés (côté trait)</div><canvas id="mini" width="320" height="320" aria-label="Neurones allumés dans cette position"></canvas></div>
+      </div>
+      <div style="display:grid;gap:6px;min-width:0;flex:1 1 220px">
+        <div class="eyebrow">Ce qui pèse le plus dans cette évaluation</div>
+        <div class="list" id="topPos"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" aria-label="Doublons">
+    <div class="controls" style="justify-content:space-between">
+      <h2>Neurones en double</h2>
+      <button class="primary" id="doublons">Chercher dans l'expert choisi</button>
+    </div>
+    <p class="note">Compare les poids d'entrée de chaque paire de neurones de l'expert choisi (corrélation au-dessus de 0,95). Environ 500 000 comparaisons : quelques secondes.</p>
+    <div id="resDoublons" class="list"></div>
+  </section>
+</div>
+
+<script>/*@@CORE@@*/
+window.NN = NN;
+(() => {
+const $ = id => document.getElementById(id);
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const PIECES = ['pions', 'cavaliers', 'fous', 'tours', 'dames', 'rois'];
+const GLYPH = { 1: '♟', 2: '♞', 3: '♝', 4: '♜', 5: '♛', 6: '♚' };
+const S = { net: null, pos: [], st: null, expert: 0, metrique: 'taux', vue: '2d', sel: null, ip: 0, nom: 'onechess.nnue (v1.1)', doub: {} };
+const fmtPct = x => (100 * x).toFixed(x < 0.01 && x > 0 ? 2 : 1).replace('.', ',') + ' %';
+const fr = n => n.toLocaleString('fr-FR');
+
+function rgb(h) { h = h.replace('#', ''); return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)); }
+function mix(a, b, t) { return a.map((v, i) => Math.round(v + (b[i] - v) * t)); }
+function seq(t) { const s = rgb(css('--soft')), h = rgb(css('--hot')), a = rgb(css('--accent')); t = Math.max(0, Math.min(1, t)); return t < .6 ? mix(s, h, t / .6) : mix(h, a, (t - .6) / .4); }
+function div(t) { const s = rgb(css('--soft')); t = Math.max(-1, Math.min(1, t)); return t >= 0 ? mix(s, rgb(css('--hot')), t) : mix(s, rgb(css('--cold')), -t); }
+const col = c => `rgb(${c[0]},${c[1]},${c[2]})`;
+
+// --------------------------------------------------------------- chargement
+async function demarrer() {
+  try {
+    const [p, r] = await Promise.all([fetch('positions.json').then(x => x.json()), fetch('reseau.txt').then(x => x.text()).then(t => { const s = atob(t.trim()), u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u.buffer; })]);
+    S.pos = p;
+    installer(r, 'onechess.nnue (v1.1, réseau du moteur)');
+  } catch (e) { $('sous').innerHTML = '<span class="err">Impossible de charger le réseau : ' + e.message + '</span>'; }
+}
+function installer(buf, nom) {
+  const net = NN.parse(buf);
+  S.net = net; S.nom = nom; S.doub = {};
+  S.st = NN.statistiques(net, S.pos.map(p => p.fen));
+  S.expert = 0; S.sel = meilleurNeurone();
+  $('expert').innerHTML = Array.from({ length: net.nb }, (_, e) => `<option value="${e}">${nomExpert(e)}</option>`).join('');
+  $('sous').textContent = `${nom} · ${fr(net.taille)} octets · statistiques sur ${fr(S.pos.length)} positions de vraies parties (autopsie du 20-11, contre Stockfish 18).`;
+  faits(); archi(); experts(); tout();
+}
+$('fichier').addEventListener('change', async ev => {
+  const f = ev.target.files[0]; if (!f) return;
+  try { installer(await f.arrayBuffer(), f.name); }
+  catch (e) { $('sous').innerHTML = '<span class="err">' + e.message + '</span>'; }
+});
+
+function nomExpert(e) {
+  const n = S.net;
+  if (!n.material) return 'Bucket ' + e;
+  const lo = Math.ceil(e * 32 / n.nb) + 2, hi = Math.min(32, Math.ceil((e + 1) * 32 / n.nb) + 1);
+  const ph = ['finale', 'milieu-finale', 'milieu', 'ouverture'];
+  return `Expert ${e} · ${lo}-${hi} pièces` + (n.nb === 4 ? ` (${ph[e]})` : '');
+}
+
+// --------------------------------------------------------------- metriques
+function taux(e, j) { const v = S.st.vus[e]; return v ? S.st.on[e][j] / v : 0; }
+function etat(e, j) {
+  const v = S.st.vus[e]; if (!v) return 'inconnu';
+  if (S.st.on[e][j] === 0) return 'mort';
+  if (S.st.sat[e][j] === v) return 'sat';
+  if (S.st.on[e][j] / v < 0.01) return 'rare';
+  return 'ok';
+}
+function sortie(j) { const n = S.net, H = n.hl; let m = 0; for (let b = 0; b < n.obn; b++) { const w = n.ow[b * 2 * H + j]; if (Math.abs(w) > Math.abs(m)) m = w; } return m; }
+function valeurs() {
+  const n = S.net, H = n.hl, e = S.expert, out = new Float64Array(H);
+  if (S.metrique === 'taux') for (let j = 0; j < H; j++) out[j] = taux(e, j);
+  else if (S.metrique === 'contrib') { const c = S.st.contrib[e]; let m = 0; for (let j = 0; j < H; j++) m = Math.max(m, c[j]); for (let j = 0; j < H; j++) out[j] = m ? c[j] / m : 0; }
+  else if (S.metrique === 'sortie') { let m = 0; for (let j = 0; j < H; j++) { out[j] = sortie(j); m = Math.max(m, Math.abs(out[j])); } for (let j = 0; j < H; j++) out[j] /= m || 1; }
+  return out;
+}
+function couleurNeurone(v, e, j) {
+  if (S.metrique === 'etat') { const s = etat(e, j); return s === 'mort' ? css('--crit') : s === 'rare' ? css('--warn') : s === 'sat' ? css('--accent') : css('--dead'); }
+  if (S.metrique === 'sortie') return col(div(v));
+  if (S.metrique === 'taux') return col(seq(Math.sqrt(v)));   // racine : la plupart des neurones s'allument rarement
+  return col(seq(v));
+}
+function meilleurNeurone() { const c = S.st.contrib[0]; let b = 0; for (let j = 1; j < c.length; j++) if (c[j] > c[b]) b = j; return b; }
+
+// --------------------------------------------------------------- bandeau
+function faits() {
+  const n = S.net, H = n.hl;
+  let mortsPartout = 0;
+  for (let j = 0; j < H; j++) { let tot = 0; for (let e = 0; e < n.nb; e++) tot += S.st.on[e][j]; if (!tot) mortsPartout++; }
+  const params = n.nb * NN.BASE * H + H + n.obn * 2 * H + n.obn;
+  $('faits').innerHTML = [
+    ['Neurones', fr(H) + ' × 2 camps'], ['Experts', n.nb + (n.material ? ' (par matériel)' : ' (par roi)')],
+    ['Seaux de sortie', n.obn], ['Activation', n.screlu ? 'SCReLU' : 'CReLU 0-255'], ['Paramètres', fr(params)],
+    ['Jamais allumés (tous experts)', fr(mortsPartout)]
+  ].map(([k, v]) => `<div class="fact"><span class="eyebrow">${k}</span><b>${v}</b></div>`).join('');
+}
+function archi() {
+  const n = S.net, H = n.hl, ink = css('--ink'), mu = css('--muted'), li = css('--line'), ac = css('--accent'), so = css('--soft');
+  const box = (x, y, w, h, t1, t2, hi) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" fill="${hi ? so : 'none'}" stroke="${hi ? ac : li}" stroke-width="1.5"/>
+    <text x="${x + w / 2}" y="${y + h / 2 - 4}" text-anchor="middle" font-family="Chivo, sans-serif" font-weight="700" font-size="14" fill="${ink}">${t1}</text>
+    <text x="${x + w / 2}" y="${y + h / 2 + 15}" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="${mu}">${t2}</text>`;
+  const fl = (x1, x2, y, lab) => `<line x1="${x1}" y1="${y}" x2="${x2 - 6}" y2="${y}" stroke="${mu}" stroke-width="1.5"/><path d="M${x2 - 8},${y - 4} L${x2},${y} L${x2 - 8},${y + 4}Z" fill="${mu}"/>` + (lab ? `<text x="${(x1 + x2) / 2}" y="${y - 7}" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="${mu}">${lab}</text>` : '');
+  $('archi').innerHTML =
+    box(10, 20, 170, 60, 'Pièces (camp au trait)', `${n.nb} × 768 entrées`) + box(10, 110, 170, 60, 'Pièces (autre camp)', `${n.nb} × 768 entrées`) +
+    fl(180, 250, 50, 'un expert') + fl(180, 250, 140, 'un expert') +
+    box(250, 20, 190, 60, 'Accumulateur', `${H} neurones, int16`, true) + box(250, 110, 190, 60, 'Accumulateur', `${H} neurones, int16`, true) +
+    fl(440, 500, 50, '') + fl(440, 500, 140, '') +
+    box(500, 20, 150, 60, n.screlu ? 'SCReLU' : 'CReLU', '0 à 255') + box(500, 110, 150, 60, n.screlu ? 'SCReLU' : 'CReLU', '0 à 255') +
+    fl(650, 710, 50, '') + fl(650, 710, 140, '') +
+    box(710, 50, 150, 90, 'Sortie', `${2 * H} → ${n.obn} seaux`) + fl(860, 905, 95, '') +
+    box(905, 65, 65, 60, 'Éval', 'cp');
+}
+
+// --------------------------------------------------------------- carte
+const cv = $('carte'), cx = cv.getContext('2d');
+function geom() { const n = S.net.hl, cols = Math.ceil(Math.sqrt(n)); return { cols, rows: Math.ceil(n / cols) }; }
+function dessinerCarte() {
+  const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1, W = Math.max(280, Math.round(r.width));
+  cv.width = W * dpr; cv.height = W * dpr; cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  cx.clearRect(0, 0, W, W);
+  const v = valeurs(), e = S.expert, { cols } = geom(), H = S.net.hl;
+  if (S.vue === '2d') {
+    const c = W / cols;
+    for (let j = 0; j < H; j++) {
+      const x = (j % cols) * c, y = Math.floor(j / cols) * c;
+      cx.fillStyle = couleurNeurone(v[j], e, j); cx.fillRect(x + .5, y + .5, c - 1, c - 1);
+    }
+    if (S.sel != null) { const x = (S.sel % cols) * c, y = Math.floor(S.sel / cols) * c; cx.strokeStyle = css('--ink'); cx.lineWidth = 2; cx.strokeRect(x + 1, y + 1, c - 2, c - 2); }
+    S.hit = (px, py) => { const i = Math.floor(px / c), k = Math.floor(py / c); const j = k * cols + i; return i >= 0 && i < cols && j >= 0 && j < H ? j : null; };
+  } else {
+    // vue 3D isometrique : la hauteur de chaque colonne = la valeur du neurone
+    const s = W / (cols * 1.05), hw = s / 2, hh = s / 4, ox = W / 2, oy = W * 0.18, maxH = W * 0.32;
+    const pts = [];
+    for (let j = 0; j < H; j++) { const i = j % cols, k = Math.floor(j / cols); pts.push([i + k, j, i, k]); }
+    pts.sort((a, b) => a[0] - b[0]);
+    for (const [, j, i, k] of pts) {
+      const x = ox + (i - k) * hw, y = oy + (i + k) * hh;
+      const val = S.metrique === 'etat' ? (etat(e, j) === 'ok' ? .15 : .6) : Math.abs(v[j]);
+      const h = Math.max(1, (S.metrique === 'taux' ? Math.sqrt(val) : val) * maxH);
+      const c0 = couleurNeurone(v[j], e, j);
+      const base = c0.startsWith('#') ? rgb(c0) : c0.match(/\d+/g).map(Number);
+      const dark = f => col(base.map(u => Math.round(u * f)));
+      cx.fillStyle = dark(.72); cx.beginPath(); cx.moveTo(x - hw, y); cx.lineTo(x, y + hh); cx.lineTo(x, y + hh - h); cx.lineTo(x - hw, y - h); cx.fill();
+      cx.fillStyle = dark(.55); cx.beginPath(); cx.moveTo(x + hw, y); cx.lineTo(x, y + hh); cx.lineTo(x, y + hh - h); cx.lineTo(x + hw, y - h); cx.fill();
+      cx.fillStyle = j === S.sel ? css('--ink') : col(base); cx.beginPath(); cx.moveTo(x, y - h - hh); cx.lineTo(x + hw, y - h); cx.lineTo(x, y + hh - h); cx.lineTo(x - hw, y - h); cx.fill();
+    }
+    S.hit = (px, py) => {   // inverse de la projection du sol (approximatif, sans la hauteur)
+      const a = (px - ox) / hw, b = (py - oy) / hh, i = Math.round((a + b) / 2), k = Math.round((b - a) / 2), j = k * cols + i;
+      return i >= 0 && i < cols && k >= 0 && j < H ? j : null;
+    };
+  }
+  legende();
+}
+function legende() {
+  const L = $('legende');
+  if (S.metrique === 'etat') {
+    L.innerHTML = [['--crit', 'jamais allumé'], ['--warn', 'allumé < 1 %'], ['--accent', 'toujours saturé'], ['--dead', 'normal']].map(([c, t]) => `<span style="display:inline-flex;gap:5px;align-items:center"><i style="width:11px;height:11px;border-radius:2px;background:var(${c});display:inline-block"></i>${t}</span>`).join('');
+  } else if (S.metrique === 'sortie') {
+    L.innerHTML = `<span>freine l'éval</span><span class="ramp" style="background:linear-gradient(90deg,${col(div(-1))},${col(div(0))},${col(div(1))})"></span><span>pousse l'éval</span>`;
+  } else {
+    L.innerHTML = `<span>${S.metrique === 'taux' ? 'jamais' : 'faible'}</span><span class="ramp" style="background:linear-gradient(90deg,${col(seq(0))},${col(seq(.6))},${col(seq(1))})"></span><span>${S.metrique === 'taux' ? 'toujours allumé' : 'le plus influent'}</span>`;
+  }
+  const n = S.net, e = S.expert;
+  const cpt = { mort: 0, rare: 0, sat: 0 };
+  for (let j = 0; j < n.hl; j++) { const s = etat(e, j); if (s in cpt) cpt[s]++; }
+  $('noteCarte').textContent = `${nomExpert(e)} : ${fr(S.st.vus[e])} accumulateurs mesurés. Jamais allumés ${cpt.mort}, allumés moins d'une fois sur 100 ${cpt.rare}, toujours saturés ${cpt.sat}. Clique un carré pour ouvrir sa fiche.`;
+}
+function posEvt(ev) { const r = cv.getBoundingClientRect(); return [ev.clientX - r.left, ev.clientY - r.top]; }
+cv.addEventListener('mousemove', ev => {
+  const [x, y] = posEvt(ev), j = S.hit ? S.hit(x, y) : null, t = $('tip');
+  if (j == null) { t.hidden = true; return; }
+  t.hidden = false; t.style.left = Math.min(x + 14, cv.clientWidth - 160) + 'px'; t.style.top = (y + 14) + 'px';
+  t.innerHTML = `<b class="mono">n° ${j}</b> · allumé ${fmtPct(taux(S.expert, j))} · sortie ${sortie(j)}`;
+});
+cv.addEventListener('mouseleave', () => $('tip').hidden = true);
+cv.addEventListener('click', ev => { const [x, y] = posEvt(ev), j = S.hit(x, y); if (j != null) choisir(j); });
+cv.addEventListener('keydown', ev => {
+  const { cols } = geom(), d = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: cols, ArrowUp: -cols }[ev.key];
+  if (d) { ev.preventDefault(); choisir(Math.max(0, Math.min(S.net.hl - 1, S.sel + d))); }
+});
+$('v2d').onclick = () => { S.vue = '2d'; $('v2d').setAttribute('aria-pressed', 'true'); $('v3d').setAttribute('aria-pressed', 'false'); dessinerCarte(); };
+$('v3d').onclick = () => { S.vue = '3d'; $('v3d').setAttribute('aria-pressed', 'true'); $('v2d').setAttribute('aria-pressed', 'false'); dessinerCarte(); };
+$('expert').onchange = ev => { S.expert = +ev.target.value; tout(); };
+$('metrique').onchange = ev => { S.metrique = ev.target.value; dessinerCarte(); };
+
+// --------------------------------------------------------------- fiche du neurone
+function choisir(j) { S.sel = j; dessinerCarte(); fiche(); }
+function fiche() {
+  const n = S.net, H = n.hl, j = S.sel, e = S.expert;
+  const lab = { mort: ['mort', 'jamais allumé'], rare: ['rare', 'rare'], sat: ['sat', 'toujours saturé'], ok: ['ok', 'actif'] };
+  const chips = Array.from({ length: n.nb }, (_, k) => { const s = lab[etat(k, j)] || ['', '?']; return `<span class="chip ${s[0]}">E${k} : ${s[1]}</span>`; }).join('');
+  const bars = Array.from({ length: n.nb }, (_, k) => `<div class="bar"><span>Expert ${k}</span><span class="t"><i style="width:${(100 * Math.sqrt(taux(k, j))).toFixed(1)}%"></i></span><span class="num">${fmtPct(taux(k, j))}</span></div>`).join('');
+  let rows = '';
+  for (let b = 0; b < n.obn; b++) rows += `<tr><td>Seau ${b}</td><td class="num">${n.ow[b * 2 * H + j]}</td><td class="num">${n.ow[b * 2 * H + H + j]}</td></tr>`;
+  const conn = connexions(j, e);
+  $('fiche').innerHTML = `
+    <div><div class="eyebrow">Fiche du neurone</div><h2 class="mono">n° ${j}</h2></div>
+    <div class="chips">${chips}</div>
+    <div><h3>Taux d'allumage par expert</h3><div class="bars">${bars}</div></div>
+    <div class="split">
+      <div><h3>Poids de sortie</h3><div class="tablewrap"><table><tr><th>Seau</th><th>camp au trait</th><th>autre camp</th></tr>${rows}</table></div>
+      <p class="note">Positif : quand ce neurone s'allume, l'évaluation monte pour ce camp.</p></div>
+      <div><h3>Biais</h3><p class="mono">${n.fb[j]}</p><h3>Connexions les plus fortes (${nomExpert(e).split(' ·')[0]})</h3><div class="list">${conn}</div></div>
+    </div>
+    <div><h3>Ce que ce neurone regarde (${nomExpert(e)})</h3>
+      <p class="note">Le poids de chaque pièce sur chaque case vers ce neurone, vu du camp qui évalue (son camp en bas). Ambre : la pièce allume le neurone. Bleu : elle l'éteint.</p>
+      <div class="boards" id="boards"></div></div>`;
+  cartesPieces(j, e);
+}
+function connexions(j, e) {
+  const n = S.net, H = n.hl, arr = [];
+  for (let p = 0; p < 12; p++) for (let s = 0; s < 64; s++) arr.push([n.fw[(e * NN.BASE + p * 64 + s) * H + j], p, s]);
+  arr.sort((a, b) => Math.abs(b[0]) - Math.abs(a[0]));
+  const nomCase = s => 'abcdefgh'[s & 7] + (1 + (s >> 3));
+  return arr.slice(0, 8).map(([w, p, s]) => `<div style="display:flex;justify-content:space-between;gap:8px"><span>${p < 6 ? 'Notre' : 'Adverse'} ${PIECES[p % 6].slice(0, -1)} en ${nomCase(s)}</span><span class="num" style="color:var(${w > 0 ? '--accent' : '--cold'})">${w > 0 ? '+' : ''}${w}</span></div>`).join('');
+}
+function cartesPieces(j, e) {
+  const n = S.net, H = n.hl, B = $('boards');
+  let m = 1;
+  for (let p = 0; p < 12; p++) for (let s = 0; s < 64; s++) m = Math.max(m, Math.abs(n.fw[(e * NN.BASE + p * 64 + s) * H + j]));
+  B.innerHTML = '';
+  for (let p = 0; p < 12; p++) {
+    const f = document.createElement('figure'), c = document.createElement('canvas');
+    c.width = c.height = 128; const g = c.getContext('2d');
+    for (let s = 0; s < 64; s++) {
+      const w = n.fw[(e * NN.BASE + p * 64 + s) * H + j];
+      g.fillStyle = col(div(w / m)); g.fillRect((s & 7) * 16, (7 - (s >> 3)) * 16, 16, 16);
+    }
+    f.appendChild(c);
+    const cap = document.createElement('figcaption'); cap.textContent = (p < 6 ? 'Nos ' : '') + PIECES[p % 6] + (p < 6 ? '' : ' adverses'); f.appendChild(cap);
+    B.appendChild(f);
+  }
+}
+
+// --------------------------------------------------------------- experts
+function experts() {
+  const n = S.net, H = n.hl;
+  let h = '<tr><th>Expert</th><th>Accumulateurs mesurés</th><th>Jamais allumés</th><th>Allumés &lt; 1 %</th><th>Toujours saturés</th><th>Allumés en moyenne</th><th>50 % de la décision</th></tr>';
+  for (let e = 0; e < n.nb; e++) {
+    const v = S.st.vus[e]; if (!v) { h += `<tr><td>${nomExpert(e)}</td><td colspan="6" class="muted">aucune position de l'échantillon</td></tr>`; continue; }
+    let mort = 0, rare = 0, sat = 0, moy = 0;
+    for (let j = 0; j < H; j++) { const o = S.st.on[e][j]; if (!o) mort++; else if (o / v < .01) rare++; if (S.st.sat[e][j] === v) sat++; moy += o / v; }
+    const c = Array.from(S.st.contrib[e]).sort((a, b) => b - a), tot = c.reduce((a, b) => a + b, 0);
+    let acc = 0, n50 = 0; for (const x of c) { acc += x; n50++; if (acc >= tot / 2) break; }
+    h += `<tr><td>${nomExpert(e)}</td><td>${fr(v)}</td><td>${mort}</td><td>${rare}</td><td>${sat}</td><td>${fmtPct(moy / H)}</td><td>${n50}</td></tr>`;
+  }
+  $('experts').innerHTML = h;
+}
+
+// --------------------------------------------------------------- positions
+const mini = $('mini'), mg = mini.getContext('2d');
+function position() {
+  const n = S.net, P = S.pos[S.ip], pos = NN.fen(P.fen), r = NN.evaluer(n, pos);
+  $('numPos').textContent = `${S.ip + 1} / ${S.pos.length}`;
+  const cases = Array(64).fill(null); for (const p of pos.pieces) cases[p.sq] = p;
+  let h = '';
+  for (let rg = 7; rg >= 0; rg--) for (let f = 0; f < 8; f++) {
+    const s = rg * 8 + f, p = cases[s];
+    h += `<div class="${(rg + f) % 2 ? 'l' : 'd'}">${p ? `<span class="${p.blanc ? 'pw' : 'pb'}">${GLYPH[p.type]}</span>` : ''}</div>`;
+  }
+  $('echiquier').innerHTML = h;
+  const H = n.hl; let allumes = 0; for (let j = 0; j < H; j++) if (r.actU[j] > 0) allumes++;
+  $('posFaits').innerHTML = [['Au trait', pos.blancs ? 'Blancs' : 'Noirs'], ['Onechess (réseau seul)', (r.cp > 0 ? '+' : '') + r.cp + ' cp'],
+    ['Stockfish 18 (recherche)', P.sf != null ? (P.sf > 0 ? '+' : '') + P.sf + ' cp' : '?'], ['Expert', nomExpert(r.expert).split(' (')[0]],
+    ['Neurones allumés', `${allumes} / ${H}`]].map(([k, v]) => `<div class="fact"><span class="eyebrow">${k}</span><b>${v}</b></div>`).join('');
+  // carte des neurones allumes
+  const { cols } = geom(), c = 320 / cols;
+  mg.clearRect(0, 0, 320, 320);
+  for (let j = 0; j < H; j++) { mg.fillStyle = r.actU[j] ? col(seq(r.actU[j] / 255)) : css('--soft'); mg.fillRect((j % cols) * c, Math.floor(j / cols) * c, c - .5, c - .5); }
+  // contributions du cote du trait et de l'autre
+  const o = r.seau * 2 * H, contr = [];
+  for (let j = 0; j < H; j++) { if (r.actU[j]) contr.push([r.actU[j] * n.ow[o + j], j, 'trait']); if (r.actT[j]) contr.push([r.actT[j] * n.ow[o + H + j], j, 'autre']); }
+  contr.sort((a, b) => Math.abs(b[0]) - Math.abs(a[0]));
+  $('topPos').innerHTML = contr.slice(0, 10).map(([v, j, cote]) => `<button data-n="${j}"><span>n° ${j} <span class="muted">(${cote === 'trait' ? 'camp au trait' : 'autre camp'})</span></span><span class="num" style="color:var(${v > 0 ? '--accent' : '--cold'})">${v > 0 ? '+' : ''}${(v * 400 / (255 * 64)).toFixed(1).replace('.', ',')} cp</span></button>`).join('');
+  $('topPos').querySelectorAll('button').forEach(b => b.onclick = () => choisir(+b.dataset.n));
+}
+$('prec').onclick = () => { S.ip = (S.ip + S.pos.length - 1) % S.pos.length; position(); };
+$('suiv').onclick = () => { S.ip = (S.ip + 1) % S.pos.length; position(); };
+$('hasard').onclick = () => { S.ip = Math.floor(Math.random() * S.pos.length); position(); };
+
+// --------------------------------------------------------------- doublons
+$('doublons').onclick = async () => {
+  const n = S.net, H = n.hl, e = S.expert, D = NN.BASE, out = $('resDoublons');
+  out.innerHTML = '<span class="muted">Calcul en cours…</span>';
+  const W = new Float32Array(H * D);
+  for (let f = 0; f < D; f++) for (let j = 0; j < H; j++) W[j * D + f] = n.fw[(e * D + f) * H + j];
+  for (let j = 0; j < H; j++) {
+    let m = 0; for (let f = 0; f < D; f++) m += W[j * D + f]; m /= D;
+    let s = 0; for (let f = 0; f < D; f++) { W[j * D + f] -= m; s += W[j * D + f] ** 2; }
+    s = Math.sqrt(s) || 1; for (let f = 0; f < D; f++) W[j * D + f] /= s;
+  }
+  const pairs = [];
+  for (let a = 0; a < H; a++) {
+    for (let b = a + 1; b < H; b++) { let d = 0; const oa = a * D, obb = b * D; for (let f = 0; f < D; f++) d += W[oa + f] * W[obb + f]; if (d > .95) pairs.push([d, a, b]); }
+    if (a % 32 === 31) { out.innerHTML = `<span class="muted">Calcul en cours… ${Math.round(100 * a / H)} %</span>`; await new Promise(r => setTimeout(r, 0)); }
+  }
+  pairs.sort((x, y) => y[0] - x[0]);
+  out.innerHTML = `<p><b>${pairs.length}</b> paires de neurones presque identiques dans ${nomExpert(e)}.</p>` +
+    pairs.slice(0, 30).map(([d, a, b]) => `<button data-n="${a}"><span>n° ${a} et n° ${b}</span><span class="num">${d.toFixed(3).replace('.', ',')}</span></button>`).join('');
+  out.querySelectorAll('button').forEach(b => b.onclick = () => choisir(+b.dataset.n));
+};
+
+function tout() { dessinerCarte(); fiche(); position(); }
+let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => S.net && dessinerCarte(), 120); });
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => S.net && (archi(), tout()));
+new MutationObserver(() => S.net && (archi(), tout())).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+demarrer();
+})();
+</script>

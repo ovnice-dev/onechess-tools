@@ -696,6 +696,10 @@ def main():
     ap.add_argument("--activation", default="crelu",
                     choices=list(ACTIVATIONS),
                     help="crelu = clamp(a,0,1), screlu = clamp(a,0,1)^2")
+    ap.add_argument("--ema", type=float, default=0.0,
+                    help="moyenne mobile des poids (ex. 0.9999) ; exportee a cote : <sortie>_ema.nnue")
+    ap.add_argument("--perte-exp", type=float, default=2.0,
+                    help="puissance de l'erreur |sigmoid - cible| (2 = carre)")
     ap.add_argument("--rang-expert", type=int, default=0,
                     help="ecart de chaque expert au tronc de faible rang (0 = plein)")
     ap.add_argument("--factorizer", type=int, default=1,
@@ -860,6 +864,7 @@ def main():
     steps = (split + args.batch - 1) // args.batch
     best       = (1e9, 1e9, 0)
     best_state = None
+    ema_state = None
     t0         = time.time()
 
     def feats(c, s):
@@ -922,7 +927,7 @@ def main():
         sel = torch.arange(0, min(args.batch, split), device=dev)
         c, sq, stm_b, ob_b, _, tg_b = data.batch(sel)
         iw, ib = feats(c, sq)
-        loss = ((torch.sigmoid(model(iw, ib, stm_b, ob_b)) - tg_b) ** 2).mean()
+        loss = (torch.sigmoid(model(iw, ib, stm_b, ob_b)) - tg_b).abs().pow(args.perte_exp).mean()
         opt.zero_grad(set_to_none=True); loss.backward(); opt.step()
         model.eval()
         with torch.no_grad():
@@ -962,7 +967,7 @@ def main():
                 sel = order[k * args.batch:(k + 1) * args.batch]
                 c, sq, stm_b, ob_b, _, tg_b = data.batch(sel)
                 iw, ib = feats(c, sq)
-                loss = ((torch.sigmoid(model(iw, ib, stm_b, ob_b)) - tg_b) ** 2).mean()
+                loss = (torch.sigmoid(model(iw, ib, stm_b, ob_b)) - tg_b).abs().pow(args.perte_exp).mean()
                 if args.act_l1:
                     loss = loss + args.act_l1 * model.act_pen
 
@@ -970,6 +975,14 @@ def main():
                 loss.backward()
                 opt.step()
                 model.clip_weights()
+                if args.ema:
+                    # 21-11 : moyenne mobile des poids (comme les modeles de diffusion)
+                    with torch.no_grad():
+                        if ema_state is None:
+                            ema_state = {k: v.detach().clone().float() for k, v in model.state_dict().items()}
+                        else:
+                            for k, v in model.state_dict().items():
+                                ema_state[k].mul_(args.ema).add_(v.float(), alpha=1.0 - args.ema)
                 tot += loss.item()
                 steps += 1
         if args.stream:
@@ -1053,6 +1066,16 @@ def main():
     if args.save_pt:
         torch.save(model.state_dict(), args.save_pt)
         print(f"poids flottants ecrits : {args.save_pt}")
+    if args.ema and ema_state is not None:
+        model.load_state_dict(ema_state)
+        model.eval()
+        with torch.no_grad():
+            vl_e, ce_e = eval_set(torch.arange(voff, voff + n_val, device=dev), d=vdata)
+        print(f"EMA ({args.ema}) : erreur {ce_e:.1f} cp (reseau normal : {best[1]:.1f} cp)", flush=True)
+        racine = args.out[:-5] if args.out.endswith('.nnue') else args.out
+        export(model, fmap, racine + '_ema.nnue', args.hidden, empirical)
+        if args.save_pt:
+            torch.save(model.state_dict(), args.save_pt[:-3] + '_ema.pt')
 
 
 if __name__ == "__main__":

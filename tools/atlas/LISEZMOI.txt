@@ -1,0 +1,4 @@
+Atlas NNUE (21-11-2026) : inspecteur du reseau d'Onechess dans le navigateur.
+page.html + core.js (le marqueur /*@@CORE@@*/ de page.html recoit core.js) ; la page lit reseau.txt
+(le .nnue en base64) et positions.json (1 500 positions de l'autopsie). test.js (Node) : evaluations
+identiques a tools/check_nnue.py (0 cp sur 40 positions). En ligne : https://claude.ai/artifact/R4wkSqky8UqGzNJXzPPsdL
