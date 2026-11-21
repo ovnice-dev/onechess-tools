@@ -91,6 +91,8 @@ DonneesA|EvalFile=reseau/essais/kaggle/donnees_grand.nnue|0 5|10|150|30|EvalFile
 GrandV11|EvalFile=reseau/essais/kaggle/donnees_grand.nnue|0 3|10|150|30||tc:10+0.1
 TtRajeunirF|Threads=2 TtRajeunir=0|0 3|10|60|20|Threads=2|tc:10+0.1
 SoupeA|EvalFile=reseau/essais/kaggle/soupe_a.nnue|0 3|10|150|30||tc:10+0.1
+SpsaLongT|AspirationDelta=9 AspirationMinDepth=4 RfpMaxDepth=8 RazorMaxDepth=3 RazorMargin=293 NmpMinDepth=3 NmpBaseReduction=4 NmpDepthDiv=3 NmpEvalDiv=222 NmpMaxEvalR=3 ProbcutMinDepth=5 ProbcutMargin=173 LmpBase=3 LmpDepthFactor=1 FutilityMaxDepth=7 FutilityMargin=90 HistPruneMaxDepth=5 HistPruneMargin=3306 SeeCaptureMargin=128 SeeQuietMargin=17 LmrBase=54 LmrDivisor=262 LmrHistDiv=13107 SingularMinDepth=6 SingularBetaFactor=23 SingularExtraMargin=13 StatBonusMul=245 StatBonusSub=79 StatBonusMax=1828 StatMalusMul=500 StatMalusSub=108 StatMalusMax=1980 QsDeltaMargin=145 QsFutilityMargin=109 CorrHistDiv=9281 BadQuiets=13491 ThreatOrder=48 MalusDecay=953 LmrDeeperMargin=51 LmrShallowerMargin=8|0 3|10|150|30||tc:30+0.3
+SpsaGtT|TmMtgBase=894 TmMtgPly=1077 TmMtgCap=872 TmMtgPlafMax=63 TmMtgPlafBase=15 TmMtgPlafPente=111 TmPlafReste=838|0 3|10|150|30||tc:40/10
 SoupeB|EvalFile=reseau/essais/kaggle/soupe_b.nnue|0 3|10|150|30||tc:10+0.1
 LoraR32|EvalFile=reseau/essais/kaggle/lora_r32.nnue|0 5|10|150|30|EvalFile=reseau/essais/kaggle/lora_plein.nnue|tc:10+0.1
 R50F|R50Div=200|0 3|10|150|30||tc:10+0.1

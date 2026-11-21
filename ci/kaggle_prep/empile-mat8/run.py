@@ -91,11 +91,13 @@ os.rename(v, '/tmp/donnees/z_val.bin')
 np.fromfile('/tmp/donnees/z_val.bin', dtype='uint8').reshape(-1, 32)[:2_000_000].tofile('/tmp/donnees/z_val.bin')
 print(f"donnees pretes : {time.time() - t0:.0f} s", flush=True)
 
-VARIANTES = [('mat8', BASE_OPTS + ['--buckets', 'mat8'])]
+# 21-11 : deux variantes a 8 experts, la complete et la « mini-LoRA » (rang 32, H1 +16,7 en petit calcul)
+VARIANTES = [('mat8', BASE_OPTS + ['--buckets', 'mat8']),
+             ('mat8_r32', BASE_OPTS + ['--buckets', 'mat8', '--rang-expert', '32'])]
 COMMUN = [sys.executable, '-u', TOOLS + '/train_jax.py', '--stream', '/tmp/donnees/*.bin', '--hidden', '1024',
           '--out-buckets', '4', '--chunk-files', '10', '--epoch-files', '60',
           '--lr', '1e-3', '--val', '2000000', '--ft-dense', '1']
-budget = int(6.6 * 3600)   # une seule variante ; limite x1,15 = 7 h 35, + preparation des donnees < 9 h
+budget = int(3.0 * 3600)   # par variante, comme l'etape 1 ; limite x1,15, + preparation des donnees < 9 h
 epoques = EPOQUES
 print(f"EPOQUES : {epoques} (comme l'etape 1)", flush=True)
 

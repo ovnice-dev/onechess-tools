@@ -89,6 +89,7 @@ def multi_chaud(idx, n):
 
 
 DENSE = False      # --ft-dense : 1re couche en produits de matrices (TPU)
+RANG = 0           # --rang-expert (21-11, « mini-LoRA ») : ecart de chaque expert au tronc de faible rang
 # --menaces 1 (phase 10, C) : entrees "menaces completes" (59 808, tools/menaces_completes.py),
 # table th de (DIM + 1) x hidden ajoutee a la 1re couche ; la ligne DIM (remplissage) reste nulle.
 # Indices calcules sur l'hote (indexeur C++) et passes avec le lot : r = (positions, iw, ib).
@@ -237,10 +238,19 @@ def predire(p, r, nb, ob_n, lam):
         fw, fb, xw, xb, stm, ob, sc, tg, xwm, xbm = entrees_denses(r, nb, ob_n, lam)
         hp = jax.lax.Precision.HIGHEST
         n = nb * BASE
-        aw = (jnp.matmul(fw, p["ft"][:n], precision=hp) + jnp.matmul(xwm, p["ft_v"][:BASE], precision=hp)
-              + p["ft_bias"] + tw)
-        ab = (jnp.matmul(fb, p["ft"][:n], precision=hp) + jnp.matmul(xbm, p["ft_v"][:BASE], precision=hp)
-              + p["ft_bias"] + tb)
+        if RANG:
+            a_ = p["ft"][:n].reshape(nb, BASE, RANG)
+            b_ = p["ftB"].reshape(nb * RANG, -1)
+            def part(f):
+                z = jnp.einsum("nkb,kbr->nkr", f.reshape(f.shape[0], nb, BASE), a_, precision=hp)
+                return jnp.matmul(z.reshape(f.shape[0], nb * RANG), b_, precision=hp)
+            aw = part(fw) + jnp.matmul(xwm, p["ft_v"][:BASE], precision=hp) + p["ft_bias"] + tw
+            ab = part(fb) + jnp.matmul(xbm, p["ft_v"][:BASE], precision=hp) + p["ft_bias"] + tb
+        else:
+            aw = (jnp.matmul(fw, p["ft"][:n], precision=hp) + jnp.matmul(xwm, p["ft_v"][:BASE], precision=hp)
+                  + p["ft_bias"] + tw)
+            ab = (jnp.matmul(fb, p["ft"][:n], precision=hp) + jnp.matmul(xbm, p["ft_v"][:BASE], precision=hp)
+                  + p["ft_bias"] + tb)
         if PAIRES:
             pw_, pb_ = contribution_paires(p, xw), contribution_paires(p, xb)
             h = p["ft_bias"].shape[0]
@@ -254,6 +264,8 @@ def predire(p, r, nb, ob_n, lam):
         y = x @ p["out_w"].T + p["out_b"]
         pred = jnp.take_along_axis(y, ob[:, None], axis=1)[:, 0]
         return pred, tg, sc, jnp.maximum(jnp.abs(aw).max(), jnp.abs(ab).max())
+    if RANG:
+        raise SystemExit("--rang-expert exige --ft-dense 1")
     if False:
         codes, sqs, stm, ob, sc, tg = decoder_cases(r, ob_n, lam)
     else:
@@ -311,8 +323,11 @@ def nouveaux(nb, hidden, ob_n, graine):
     th = {"th": jnp.zeros((DIM_MEN + 1, LARG_MEN or hidden))} if MENACES else {}   # a zero : greffe sans effet au depart
     if PAIRES:
         th["pp"] = jnp.zeros((PAIR_INPUTS + 1, LARG_PAIRES or hidden))
+    if RANG:
+        th["ftB"] = jnp.zeros((nb, RANG, hidden))
     return borner({**th,
-        "ft": 0.01 * jax.random.normal(k[0], (n_in + 1, hidden)),
+        "ft": (0.1 * jax.random.normal(k[0], (n_in + 1, RANG)) if RANG
+               else 0.01 * jax.random.normal(k[0], (n_in + 1, hidden))),
         "ft_v": 0.01 * jax.random.normal(k[1], (BASE + 1, hidden)),
         "ft_bias": jnp.zeros(hidden),
         "out_w": 0.05 * jax.random.normal(k[2], (ob_n, 2 * hidden)),
@@ -323,10 +338,14 @@ def nouveaux(nb, hidden, ob_n, graine):
 NOMS = {"ft": "ft.weight", "ft_v": "ft_v.weight", "ft_bias": "ft_bias", "out_w": "out.weight", "out_b": "out.bias"}
 
 
+def noms():
+    return {**NOMS, "ftB": "ftB"} if RANG else NOMS
+
+
 def depuis_torch(sd, p, nb):
     """Charge un state_dict de train.py ; experts 4 -> 8 comme train.py --greffe."""
     p = dict(p)
-    for k, nom in NOMS.items():
+    for k, nom in noms().items():
         w = np.asarray(sd[nom].cpu().numpy() if hasattr(sd[nom], "cpu") else sd[nom], dtype=np.float32)
         if w.shape == p[k].shape:
             p[k] = jnp.asarray(w)
@@ -345,7 +364,7 @@ def depuis_torch(sd, p, nb):
 
 def vers_torch(p):
     import torch
-    return {nom: torch.from_numpy(np.asarray(p[k], dtype=np.float32)) for k, nom in NOMS.items()}
+    return {nom: torch.from_numpy(np.asarray(p[k], dtype=np.float32)) for k, nom in noms().items()}
 
 
 FULLTHREAT_FLAG = 4096   # moteur : bit 12 du champ activation (nnue.h)
@@ -390,7 +409,7 @@ def exporter(p, nb, hidden, ob_n, chemin, empirical, save_pt=""):
     import torch
     sys.path.insert(0, ICI)
     import train as T
-    m = T.Perspective(nb * BASE, hidden, ob_n, factorizer=True)
+    m = T.Perspective(nb * BASE, hidden, ob_n, factorizer=True, rang=RANG)
     m.load_state_dict(vers_torch(p), strict=False)
     with torch.no_grad():   # couches inutilisees par ce reseau : sans effet sur l'export
         pass
@@ -434,7 +453,7 @@ def vers_ckpt_torch(chemin, p, st, epoch, best, best_p, nb, hidden, ob_n, lr, ep
     import torch
     sys.path.insert(0, ICI)
     import train as T
-    m = T.Perspective(nb * BASE, hidden, ob_n, factorizer=True)
+    m = T.Perspective(nb * BASE, hidden, ob_n, factorizer=True, rang=RANG)
     m.load_state_dict(vers_torch(p), strict=False)
     opt = torch.optim.AdamW(m.parameters(), lr=lr, weight_decay=0.0)
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=epochs, eta_min=lr / 30)
@@ -511,6 +530,7 @@ def main():
     ap.add_argument("--limite-s", type=float, default=0, help="arret propre apres ce temps (session)")
     ap.add_argument("--max-pas", type=int, default=0, help="essai de vitesse : arret apres N pas")
     ap.add_argument("--verifier", action="store_true", help="comparaison pas a pas avec train.py")
+    ap.add_argument("--rang-expert", type=int, default=0, help="ecart de chaque expert au tronc de faible rang (0 = plein)")
     ap.add_argument("--ft-dense", type=int, default=0, help="1 = 1re couche en produits de matrices denses (TPU)")
     ap.add_argument("--menaces", type=int, default=0, help="1 = entrees menaces completes (phase 10, C)")
     ap.add_argument("--menaces-largeur", type=int, default=0, help="neurones alimentes par les menaces (0 = tous)")
@@ -520,8 +540,11 @@ def main():
     ap.add_argument("--ft-int8", type=int, default=0,
                     help="1 = QAT : 1re couche int8 dans le moteur (lancer avec ONE_QA=127, moteur -DONE_QA=127 -DONE_FT_INT8)")
     a = ap.parse_args()
-    global DENSE, MENACES, LARG_MEN, ENNEMIS, QAT, PAIRES, LARG_PAIRES, ROI
+    global DENSE, MENACES, LARG_MEN, ENNEMIS, QAT, PAIRES, LARG_PAIRES, ROI, RANG
     QAT = bool(a.ft_int8)
+    RANG = a.rang_expert
+    if RANG and (QAT or not a.ft_dense):
+        raise SystemExit("--rang-expert exige --ft-dense 1 et pas de --ft-int8")
     if QAT:
         print(f"QAT : 1re couche int8, QA = {QA}, poids fusionnes bornes a {127 / QA:.3f}", flush=True)
     LARG_MEN, ENNEMIS = a.menaces_largeur, bool(a.menaces_ennemis)
@@ -660,8 +683,11 @@ def verifier(a):
     files = sorted(glob.glob(a.stream))
     recs = np.fromfile(files[0], dtype=np.uint8).reshape(-1, 32)[:4096]
     torch.manual_seed(0)
-    m = T.Perspective(nb * BASE, H, ob_n, factorizer=True)
+    m = T.Perspective(nb * BASE, H, ob_n, factorizer=True, rang=RANG)
     m.clip_weights()
+    if RANG:
+        with torch.no_grad():
+            m.ftB.normal_(0, 0.01)   # sinon la partie propre aux experts est nulle et ne verifie rien
     fmap = T.FeatureMap(a.buckets, 0, "cpu")
     d = T.RawData(recs, "cpu", ob_n, a.lambda_eval)
     c, sq, stm, ob, sc, tg = d.batch(torch.arange(len(recs)))
@@ -675,7 +701,7 @@ def verifier(a):
     pj = predire(p, jnp.asarray(recs), nb, ob_n, a.lambda_eval)[0]
     print(f"perte : torch {lt.item():.8f}, jax {float(lj):.8f}")
     print(f"prediction : ecart max {np.abs(np.asarray(pj) - pred_t.detach().numpy()).max():.2e}")
-    for k, nom in NOMS.items():
+    for k, nom in noms().items():
         gt = dict(m.named_parameters())[nom].grad.numpy()
         gk = np.asarray(gj[k])
         if k in ("ft", "ft_v"):        # ligne de remplissage : sans effet (remise a zero a chaque pas)
